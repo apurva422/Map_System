@@ -1,0 +1,92 @@
+/* ── MAP System — Global Styles ───────────────────────────────────────── */
+
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Root variables */
+:root {
+    --primary:        #1D4ED8;
+    --primary-light:  #3B82F6;
+    --accent:         #F59E0B;
+    --bg:             #F8FAFC;
+    --surface:        #FFFFFF;
+    --text:           #1E293B;
+    --text-muted:     #64748B;
+    --border:         #E2E8F0;
+    --success:        #10B981;
+    --warning:        #F59E0B;
+    --danger:         #EF4444;
+    --radius:         0.5rem;
+}
+
+/* Base */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #1E293B;
+    color: #F8FAFC;
+}
+[data-testid="stSidebar"] .stButton > button {
+    background: transparent;
+    color: #CBD5E1;
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    transition: background 0.2s;
+}
+[data-testid="stSidebar"] .stButton > button:hover {
+    background: #334155;
+    color: #F8FAFC;
+}
+
+/* Primary buttons */
+.stButton > button[kind="primary"] {
+    background-color: var(--primary);
+    color: #FFFFFF;
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: background 0.2s;
+}
+.stButton > button[kind="primary"]:hover {
+    background-color: var(--primary-light);
+}
+
+/* Metric cards */
+[data-testid="metric-container"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+/* Dataframe */
+.dataframe { border-radius: var(--radius); overflow: hidden; }
+
+/* Tabs */
+.stTabs [data-baseweb="tab"] {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+.stTabs [aria-selected="true"] {
+    color: var(--primary) !important;
+    border-bottom: 2px solid var(--primary) !important;
+}
+
+/* Forms */
+.stTextInput > div > input,
+.stTextArea > div > textarea,
+.stSelectbox > div {
+    border-radius: var(--radius) !important;
+    border-color: var(--border) !important;
+}
+
+/* Alerts */
+.stAlert { border-radius: var(--radius); }
+
+/* Divider */
+hr { border-color: var(--border); }
