@@ -1,92 +1,236 @@
-/* ── MAP System — Global Styles ───────────────────────────────────────── */
+/* ── MAP System Global Stylesheet ────────────────────────────────────────── */
 
-/* Import Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-/* Root variables */
-:root {
-    --primary:        #1D4ED8;
-    --primary-light:  #3B82F6;
-    --accent:         #F59E0B;
-    --bg:             #F8FAFC;
-    --surface:        #FFFFFF;
-    --text:           #1E293B;
-    --text-muted:     #64748B;
-    --border:         #E2E8F0;
-    --success:        #10B981;
-    --warning:        #F59E0B;
-    --danger:         #EF4444;
-    --radius:         0.5rem;
+/* ── General app chrome ─────────────────────────────────────────────────── */
+[data-testid="stAppViewContainer"] {
+    background: #F5F7FA;
+    color: #1A1A2E;
 }
 
-/* Base */
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--bg);
-    color: var(--text);
+/* Force all text to be dark for readability */
+body,
+p,
+span,
+label,
+div,
+li,
+td,
+th,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+[data-testid="stMarkdown"],
+[data-testid="stText"],
+.stMarkdown p,
+.stMarkdown span {
+    color: #1A1A2E !important;
 }
 
-/* Sidebar */
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    background-color: #1E293B;
-    color: #F8FAFC;
-}
-[data-testid="stSidebar"] .stButton > button {
-    background: transparent;
-    color: #CBD5E1;
-    border: 1px solid #334155;
-    border-radius: var(--radius);
-    transition: background 0.2s;
-}
-[data-testid="stSidebar"] .stButton > button:hover {
-    background: #334155;
-    color: #F8FAFC;
+    background: #FFFFFF !important;
+    border-right: 1px solid #E5E7EB;
 }
 
-/* Primary buttons */
-.stButton > button[kind="primary"] {
-    background-color: var(--primary);
-    color: #FFFFFF;
-    border-radius: var(--radius);
+[data-testid="stSidebar"] * {
+    color: #374151 !important;
+}
+
+/* Sidebar section headers */
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h2 {
+    color: #1A1A2E !important;
+    font-weight: 700 !important;
+}
+
+/* ── Sidebar nav buttons ─────────────────────────────────────────────────── */
+[data-testid="stSidebar"] .stButton>button {
+    background: transparent !important;
+    border: none !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    font-size: 0.92rem;
+    color: #374151 !important;
+    padding: 0.55rem 0.85rem !important;
+    border-radius: 8px;
+    transition: background 0.15s, transform 0.1s;
+    width: 100% !important;
+    margin-bottom: 2px;
+}
+
+[data-testid="stSidebar"] .stButton>button:hover {
+    background: #EEF2FF !important;
+    color: #2E75B6 !important;
+}
+
+[data-testid="stSidebar"] .stButton>button:active {
+    transform: scale(0.98);
+}
+
+/* Bold buttons (active nav items) */
+[data-testid="stSidebar"] .stButton>button strong {
+    color: #2E75B6 !important;
+    font-weight: 700;
+}
+
+/* Sign out button — slightly different style */
+[data-testid="stSidebar"] .stButton:last-child>button {
+    background: #FEF2F2 !important;
+    color: #DC2626 !important;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+[data-testid="stSidebar"] .stButton:last-child>button:hover {
+    background: #FEE2E2 !important;
+    color: #B91C1C !important;
+}
+
+/* ── Sidebar small/caption text ──────────────────────────────────────────── */
+[data-testid="stSidebar"] small,
+[data-testid="stSidebar"] .stCaption {
+    color: #6B7280 !important;
+}
+
+/* ── Status badges ───────────────────────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
     font-weight: 600;
-    transition: background 0.2s;
-}
-.stButton > button[kind="primary"]:hover {
-    background-color: var(--primary-light);
+    letter-spacing: 0.02em;
 }
 
-/* Metric cards */
-[data-testid="metric-container"] {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+.badge-initiated {
+    background: #E5E7EB;
+    color: #374151 !important;
 }
 
-/* Dataframe */
-.dataframe { border-radius: var(--radius); overflow: hidden; }
+.badge-ongoing {
+    background: #FEF3C7;
+    color: #92400E !important;
+}
 
-/* Tabs */
-.stTabs [data-baseweb="tab"] {
+.badge-closed {
+    background: #D1FAE5;
+    color: #065F46 !important;
+}
+
+/* ── Metric cards ────────────────────────────────────────────────────────── */
+.metric-card {
+    background: #FFFFFF;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+    border-left: 4px solid #2E75B6;
+}
+
+.metric-card h3 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1A1A2E !important;
+}
+
+.metric-card p {
+    font-size: 0.85rem;
+    color: #6B7280 !important;
+    margin: 0.25rem 0 0;
+}
+
+/* ── Streamlit built-in metric widget ────────────────────────────────────── */
+[data-testid="stMetric"] label,
+[data-testid="stMetric"] [data-testid="stMetricValue"],
+[data-testid="stMetric"] [data-testid="stMetricDelta"] {
+    color: #1A1A2E !important;
+}
+
+/* ── Data tables ─────────────────────────────────────────────────────────── */
+[data-testid="stDataFrame"] {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+[data-testid="stForm"] {
+    background: #FFFFFF;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Input labels ────────────────────────────────────────────────────────── */
+.stTextInput label,
+.stTextArea label,
+.stSelectbox label,
+.stDateInput label,
+.stNumberInput label {
+    color: #374151 !important;
     font-weight: 500;
-    color: var(--text-muted);
-}
-.stTabs [aria-selected="true"] {
-    color: var(--primary) !important;
-    border-bottom: 2px solid var(--primary) !important;
 }
 
-/* Forms */
-.stTextInput > div > input,
-.stTextArea > div > textarea,
-.stSelectbox > div {
-    border-radius: var(--radius) !important;
-    border-color: var(--border) !important;
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] button {
+    color: #6B7280 !important;
 }
 
-/* Alerts */
-.stAlert { border-radius: var(--radius); }
+.stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+    color: #2E75B6 !important;
+    border-bottom-color: #2E75B6 !important;
+}
 
-/* Divider */
-hr { border-color: var(--border); }
+/* ── Section headers ─────────────────────────────────────────────────────── */
+h1,
+h2,
+h3 {
+    color: #1A1A2E !important;
+}
+
+/* ── Main area buttons ───────────────────────────────────────────────────── */
+.stButton>button {
+    color: #FFFFFF !important;
+}
+
+/* Keep Sign In and main action buttons styled correctly */
+[data-testid="stForm"] .stButton>button {
+    background: #2E75B6 !important;
+    color: #FFFFFF !important;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+[data-testid="stForm"] .stButton>button:hover {
+    background: #245D94 !important;
+}
+
+/* ── Login page overrides ────────────────────────────────────────────────── */
+.login-card {
+    background: white;
+    padding: 2.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    max-width: 420px;
+    margin: 4rem auto 0;
+}
+
+.login-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #1A1A2E !important;
+    margin-bottom: 0.25rem;
+}
+
+.login-sub {
+    color: #6B7280 !important;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ── Dividers ────────────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] hr {
+    border-color: #E5E7EB !important;
+}

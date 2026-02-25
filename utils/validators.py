@@ -1,46 +1,39 @@
-from datetime import date
-from database.supabase_client import get_supabase_client
+"""
+utils/validators.py
+===================
+Eligibility checks for the MAP System.
 
-def check_eligibility(employee_id: str) -> tuple[bool, str]:
+is_eligible_manager(employee_row) → bool
+    True if role == "Manager" AND level == "LEVEL 2"
+
+get_eligible_managers() → list[dict]
+    Returns all employees who pass the eligibility check.
+    Uses the service-role client to bypass RLS.
+"""
+
+from database.supabase_client import get_service_client
+
+
+def is_eligible_manager(employee: dict) -> bool:
+    """Check a single employee dict for manager eligibility."""
+    return (
+        employee.get("role", "").strip() == "Manager"
+        and employee.get("level", "").strip().upper() == "LEVEL 2"
+    )
+
+
+def get_eligible_managers() -> list[dict]:
     """
-    Check whether an employee is eligible to submit an action plan.
-    Returns (is_eligible: bool, reason: str).
+    Query Supabase for all eligible managers (role=Manager, level=LEVEL 2).
+    Uses the service client so RLS does not restrict the query.
     """
-    supabase = get_supabase_client()
-
-    # Rule 1: Employee must exist in profiles
-    profile_res = supabase.table("profiles").select("id, role, active").eq("id", employee_id).single().execute()
-    if not profile_res.data:
-        return False, "Employee profile not found."
-    if not profile_res.data.get("active", True):
-        return False, "Employee account is inactive."
-
-    # Rule 2: No open (non-closed) action plans already pending
-    open_res = supabase.table("action_plans") \
-        .select("id") \
-        .eq("created_by", employee_id) \
-        .not_.in_("status", ["Closed", "Rejected"]) \
+    client = get_service_client()
+    resp = (
+        client
+        .from_("employees")
+        .select("id, emp_id, name, email, zone, function, reporting_manager_id")
+        .eq("role", "Manager")
+        .eq("level", "LEVEL 2")
         .execute()
-
-    if open_res.data and len(open_res.data) >= 3:
-        return False, "Employee already has 3 or more active action plans."
-
-    return True, "Eligible"
-
-def is_plan_overdue(due_date_str: str) -> bool:
-    """Return True if the due date has passed."""
-    try:
-        due = date.fromisoformat(due_date_str)
-        return due < date.today()
-    except ValueError:
-        return False
-
-def validate_plan_payload(payload: dict) -> tuple[bool, str]:
-    """Basic field-level validation for action plan payloads."""
-    if not payload.get("title", "").strip():
-        return False, "Title is required."
-    if not payload.get("due_date"):
-        return False, "Due date is required."
-    if not payload.get("created_by"):
-        return False, "Creator ID is missing."
-    return True, "Valid"
+    )
+    return resp.data or []

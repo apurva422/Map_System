@@ -1,11 +1,11 @@
 import streamlit as st
-from database.supabase_client import get_supabase_client
-from config import AP_STATUSES
-from utils.validators import check_eligibility
+from database.supabase_client import supabase
+from config import PLAN_STATUSES
+from utils.validators import is_eligible_manager
 
 def render_action_plan_form(role: str, plan_id: str | None = None):
     """Reusable create / edit action plan form."""
-    supabase = get_supabase_client()
+
     st.subheader("📝 Action Plan Form")
 
     existing = {}
@@ -17,8 +17,8 @@ def render_action_plan_form(role: str, plan_id: str | None = None):
         title       = st.text_input("Title", value=existing.get("title", ""))
         description = st.text_area("Description", value=existing.get("description", ""))
         due_date    = st.date_input("Due Date")
-        status      = st.selectbox("Status", AP_STATUSES,
-                                   index=AP_STATUSES.index(existing.get("status", "Draft")))
+        status      = st.selectbox("Status", PLAN_STATUSES,
+                                   index=PLAN_STATUSES.index(existing.get("status", "Initiated")))
 
         submitted = st.form_submit_button("Save Action Plan")
 
@@ -27,13 +27,13 @@ def render_action_plan_form(role: str, plan_id: str | None = None):
             st.warning("Title is required.")
             return
 
-        user = st.session_state.get("user", {})
         payload = {
             "title": title,
             "description": description,
             "due_date": str(due_date),
             "status": status,
-            "created_by": user.get("id"),
+            # NOTE: add "created_by": user.get("id") once the column
+            # is added to the action_plans table in Supabase.
         }
 
         try:

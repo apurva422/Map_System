@@ -1,9 +1,7 @@
 import streamlit as st
-from components.sidebar import render_sidebar
-from database.supabase_client import get_supabase_client
+from database.supabase_client import supabase
 
 def render():
-    render_sidebar()
     st.title("Admin Panel")
 
     tab1, tab2 = st.tabs(["User Management", "System Settings"])
@@ -15,7 +13,6 @@ def render():
         st.info("System settings coming soon.")
 
 def _render_user_management():
-    supabase = get_supabase_client()
     st.subheader("All Users")
     try:
         profiles = supabase.table("profiles").select("*").execute()

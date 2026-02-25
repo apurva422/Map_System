@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
-from database.supabase_client import get_supabase_client
+from database.supabase_client import supabase
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _load_plans(filters: dict | None = None) -> pd.DataFrame:
-    supabase = get_supabase_client()
     query = supabase.table("action_plans").select("*")
     if filters:
         for col, val in filters.items():
@@ -16,8 +15,10 @@ def _load_plans(filters: dict | None = None) -> pd.DataFrame:
 # ── Role-specific dashboards ──────────────────────────────────────────────────
 
 def render_manager_dashboard():
-    user = st.session_state.get("user", {})
-    df = _load_plans({"created_by": user.get("id")})
+    # NOTE: "created_by" column does not exist in action_plans yet.
+    # Once the column is added to Supabase, restore the filter:
+    #   df = _load_plans({"created_by": user.get("id")})
+    df = _load_plans()
     _status_bar_chart(df, title="My Plans by Status")
 
 def render_hrbp_dashboard():

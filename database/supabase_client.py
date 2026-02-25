@@ -1,13 +1,25 @@
+import os
 from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_KEY
+from dotenv import load_dotenv
 
-_supabase_client: Client | None = None
+load_dotenv()
 
-def get_supabase_client() -> Client:
-    """Return a single shared Supabase client instance (singleton)."""
-    global _supabase_client
-    if _supabase_client is None:
-        if not SUPABASE_URL or not SUPABASE_KEY:
-            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in the .env file.")
-        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    return _supabase_client
+# ── Anon client (used by most app operations; respects RLS) ───────────────────
+_url:      str = os.environ.get("SUPABASE_URL", "")
+_anon_key: str = os.environ.get("SUPABASE_ANON_KEY", "")
+
+supabase: Client = create_client(_url, _anon_key)
+
+# ── Service-role client (bypasses RLS; used for Admin-only ops) ───────────────
+_service_key: str = os.environ.get("SUPABASE_SERVICE_KEY", "")
+
+def get_service_client() -> Client:
+    """Return a Supabase client using the service-role key.
+    Use ONLY for operations that must bypass RLS (e.g. admin user creation,
+    eligibility checks across all rows).  Never expose this to the browser.
+    """
+    if not _service_key:
+        raise EnvironmentError(
+            "SUPABASE_SERVICE_KEY is not set in your .env file."
+        )
+    return create_client(_url, _service_key)
