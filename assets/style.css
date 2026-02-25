@@ -234,3 +234,33 @@ h3 {
 [data-testid="stSidebar"] hr {
     border-color: #E5E7EB !important;
 }
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
+}
+
+/* ── Plan detail cards (progress history) ────────────────────────────────── */
+/* Ensure the global color override doesn't bleed into inline-styled HTML */
+[data-testid="stMarkdownContainer"] p {
+    color: #374151 !important;
+}
+
+/* ── Alert boxes ─────────────────────────────────────────────────────────── */
+[data-testid="stAlert"] {
+    border-radius: 8px !important;
+}

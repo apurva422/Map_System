@@ -1,6 +1,11 @@
+"""
+views/ceo.py
+============
+CEO / Business Head View — Phase 6
+Stub only: prevents import errors while Phase 3 is being built.
+"""
 import streamlit as st
-from components.dashboard_charts import render_ceo_dashboard
 
-def render():
-    st.title("CEO Overview")
-    render_ceo_dashboard()
+
+def render() -> None:
+    st.info("🚧 CEO Dashboard — coming in Phase 6.")
