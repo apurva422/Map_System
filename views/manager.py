@@ -329,12 +329,55 @@ def _render_dashboard(user: dict) -> None:
         return
 
     for plan in plans[:5]:
-        st.markdown(_plan_card_html(plan, 0), unsafe_allow_html=True)
+        status    = plan.get("status", "Initiated")
+        colour    = STATUS_COLOURS.get(status, "#9E9E9E")
+        wef_num   = plan.get("wef_element", "—")
+        wef_text  = WEF_ELEMENTS.get(wef_num, "")
+        short_wef = wef_text[:55] + "…" if len(wef_text) > 55 else wef_text
+        created   = plan.get("created_at", "")[:10] if plan.get("created_at") else "—"
+
+        with st.container(border=True):
+            # Coloured left-accent bar + status badge in one row
+            top_left, top_right = st.columns([5, 1])
+            with top_left:
+                st.markdown(
+                    f"<div style='border-left:4px solid {colour};"
+                    f"padding-left:0.7rem;'>"
+                    f"<span style='font-weight:700;font-size:0.95rem;'>"
+                    f"{plan.get('title','—')}</span><br>"
+                    f"<span style='font-size:0.8rem;color:#6B7280;'>"
+                    f"Q{wef_num} — {short_wef}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            with top_right:
+                st.markdown(
+                    f"<div style='text-align:right;padding-top:4px;'>"
+                    f"<span style='background:{colour}22;color:{colour};"
+                    f"border:1px solid {colour};padding:2px 10px;"
+                    f"border-radius:12px;font-size:0.78rem;font-weight:600;'>"
+                    f"{status}</span></div>",
+                    unsafe_allow_html=True,
+                )
+
+            # Date row
+            st.caption(f"📅 {plan.get('start_date','—')} → {plan.get('target_date','—')}   🕒 Created: {created}")
+
+            # Open button — sits inside the container border
+            if st.button(
+                "✏️ Open in Editor",
+                key=f"dash_open_{plan['id']}",
+                use_container_width=True,
+            ):
+                st.session_state["selected_plan_id"] = plan["id"]
+                st.session_state["current_page"]     = "my_plans"
+                st.rerun()
 
     if len(plans) > 5:
         st.caption(f"Showing 5 of {len(plans)} plans. Go to **My Action Plans** to see all.")
 
     if st.button("📋 View All My Plans", use_container_width=False):
+        st.session_state.pop("selected_plan_id", None)
         st.session_state["current_page"] = "my_plans"
         st.rerun()
 
@@ -685,24 +728,23 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 if upd.get("employees"):
                     updater_name = upd["employees"].get("name", "")
 
-                st.markdown(
-                    f"""
-                    <div style='border-left:4px solid {border_col};
-                                background:{bg_col};border-radius:0 8px 8px 0;
-                                padding:0.7rem 1rem;margin-bottom:0.8rem;'>
-                        <div style='display:flex;justify-content:space-between;
-                                    align-items:center;margin-bottom:0.3rem;'>
-                            <span style='font-size:0.78rem;font-weight:700;
-                                         color:{border_col};'>{role_icon}
-                                {f'— {updater_name}' if updater_name else ''}
-                            </span>
-                            <span style='font-size:0.75rem;color:#9CA3AF;'>{time_str}</span>
-                        </div>
-                        <p style='font-size:0.88rem;color:#374151;margin:0;'>{update_txt}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                import html as _html
+                safe_txt  = _html.escape(str(update_txt))
+                name_part = f"&#8212; {_html.escape(updater_name)}" if updater_name else ""
+                card_html = (
+                    f"<div style='border-left:4px solid {border_col};"
+                    f"background:{bg_col};border-radius:0 8px 8px 0;"
+                    f"padding:0.7rem 1rem;margin-bottom:0.8rem;'>"
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"align-items:center;margin-bottom:0.3rem;'>"
+                    f"<span style='font-size:0.78rem;font-weight:700;color:{border_col};'>"
+                    f"{role_icon} {name_part}</span>"
+                    f"<span style='font-size:0.75rem;color:#9CA3AF;'>{time_str}</span>"
+                    f"</div>"
+                    f"<p style='font-size:0.88rem;color:#374151;margin:0;'>{safe_txt}</p>"
+                    f"</div>"
                 )
+                st.markdown(card_html, unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
