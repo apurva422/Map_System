@@ -121,7 +121,7 @@ def _fetch_plan_by_id(plan_id: str) -> dict | None:
 def _fetch_progress_updates(plan_id: str) -> list[dict]:
     try:
         resp = (
-            supabase
+            get_service_client()
             .from_("progress_updates")
             .select("*, employees(name)")
             .eq("action_plan_id", plan_id)
@@ -152,7 +152,7 @@ def _add_hrbp_update(plan_id: str, hrbp_db_id: str, text: str) -> bool:
 def _fetch_hrbp_email(hrbp_db_id: str) -> str:
     try:
         resp = (
-            supabase
+            get_service_client()
             .from_("employees")
             .select("email")
             .eq("id", hrbp_db_id)

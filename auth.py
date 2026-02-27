@@ -15,6 +15,7 @@ Session state schema (st.session_state["user"])
 {
     "auth_uid": str,   # Supabase Auth UID
     "emp_id":   str,   # employee record ID
+    "db_id":    str,   # UUID primary key in employees table
     "name":     str,
     "role":     str,   # "Manager" | "HRBP" | "Admin" | "CEO"
     "zone":     str,
@@ -23,18 +24,27 @@ Session state schema (st.session_state["user"])
 """
 
 import streamlit as st
-from database.supabase_client import supabase
+from database.supabase_client import supabase, get_service_client
 from config import APP_ICON, ROLE_COLOURS
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _fetch_employee_profile(auth_uid: str) -> dict | None:
-    """Join auth_users → employees to build the full session user dict."""
+    """
+    Join auth_users → employees to build the full session user dict.
+
+    Uses the service client for BOTH queries so RLS never blocks the
+    login profile fetch — the anon client's session hasn't fully
+    propagated at the moment this runs, so RLS would return 0 rows.
+    The service client is the correct tool for this internal bootstrap.
+    """
     try:
+        client = get_service_client()
+
         # 1. Get the bridge row (auth_uid → emp_id, role, zone)
         auth_row = (
-            supabase
+            client
             .from_("auth_users")
             .select("emp_id, role, zone")
             .eq("auth_uid", auth_uid)
@@ -50,7 +60,7 @@ def _fetch_employee_profile(auth_uid: str) -> dict | None:
 
         # 2. Get display name and email from employees
         emp_row = (
-            supabase
+            client
             .from_("employees")
             .select("id, name, email")
             .eq("emp_id", emp_id)
@@ -76,7 +86,7 @@ def _fetch_employee_profile(auth_uid: str) -> dict | None:
 
 
 def _set_session(user: dict) -> None:
-    st.session_state["user"] = user
+    st.session_state["user"]          = user
     st.session_state["authenticated"] = True
 
 
@@ -119,12 +129,9 @@ def login() -> None:
     """
     Render the login page.
     On successful Supabase Auth sign-in, fetches the employee profile
-    and stores it in session state, then calls st.rerun() so the role
-    router in app.py takes over.
+    using the service client and stores it in session state, then calls
+    st.rerun() so the role router in app.py takes over.
     """
-    # ── Page chrome ───────────────────────────────────────────────────────────
-    # Login-specific styles are defined in assets/style.css
-
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(
@@ -140,8 +147,15 @@ def login() -> None:
         st.markdown("### Sign in to your account")
 
         with st.form("login_form", clear_on_submit=False):
-            email    = st.text_input("Email address", placeholder="you@xyzindustries.com")
-            password = st.text_input("Password", type="password", placeholder="••••••••")
+            email     = st.text_input(
+                "Email address",
+                placeholder="you@xyzindustries.com",
+            )
+            password  = st.text_input(
+                "Password",
+                type="password",
+                placeholder="••••••••",
+            )
             submitted = st.form_submit_button("Sign In", use_container_width=True)
 
         if submitted:
@@ -167,8 +181,9 @@ def login() -> None:
 
             if profile is None:
                 st.error(
-                    "Your account exists but has no employee profile. "
-                    "Please contact the HR Administrator."
+                    "Your account exists in Supabase Auth but has no matching "
+                    "employee profile. Please contact the HR Administrator to "
+                    "ensure your Auth UID is correctly linked in the auth_users table."
                 )
                 return
 
