@@ -19,6 +19,7 @@ Session state schema (st.session_state["user"])
     "name":     str,
     "role":     str,   # "Manager" | "HRBP" | "Admin" | "CEO"
     "zone":     str,
+    "function": str,   # department / function from employees table
     "email":    str,
 }
 """
@@ -62,7 +63,7 @@ def _fetch_employee_profile(auth_uid: str) -> dict | None:
         emp_row = (
             client
             .from_("employees")
-            .select("id, name, email")
+            .select("id, name, email, function")
             .eq("emp_id", emp_id)
             .single()
             .execute()
@@ -71,13 +72,14 @@ def _fetch_employee_profile(auth_uid: str) -> dict | None:
             return None
 
         return {
-            "auth_uid": auth_uid,
-            "emp_id":   emp_id,
-            "db_id":    emp_row.data["id"],   # UUID PK in employees table
-            "name":     emp_row.data["name"],
-            "email":    emp_row.data["email"],
-            "role":     role,
-            "zone":     zone or "",
+            "auth_uid":  auth_uid,
+            "emp_id":    emp_id,
+            "db_id":     emp_row.data["id"],   # UUID PK in employees table
+            "name":      emp_row.data["name"],
+            "email":     emp_row.data["email"],
+            "role":      role,
+            "zone":      zone or "",
+            "function":  emp_row.data.get("function", ""),
         }
 
     except Exception as exc:

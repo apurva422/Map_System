@@ -412,8 +412,8 @@ def _render_create_plan(user: dict) -> None:
     )
 
     def _on_create(payload: dict) -> None:
-        # Fetch zone and function for denormalization
-        function_ = _fetch_manager_function(manager_db_id)
+        # Use zone and function from session (populated via service client at login)
+        function_ = user.get("function", "")
         zone      = user.get("zone", "")
 
         created = _create_plan(manager_db_id, zone, function_, payload)
