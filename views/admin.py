@@ -336,7 +336,7 @@ def _render_all_plans(user: dict) -> None:
         colour = STATUS_COLOURS.get(val, "#9E9E9E")
         return f"color: {colour}; font-weight: 600;"
 
-    styled = show_df.style.applymap(_style_status, subset=["Status"])
+    styled = show_df.style.map(_style_status, subset=["Status"])
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
     # ── Select plan to edit ───────────────────────────────────────────────────
@@ -500,8 +500,8 @@ def _render_feedback(user: dict) -> None:
                 {_status_badge_html(selected_plan.get('status','—'))}
               </div>
               <div style="font-size:0.85rem;color:#374151;margin-top:6px;">
-                {selected_plan.get('description','—')[:200]}
-                {'…' if len(selected_plan.get('description','')) > 200 else ''}
+                {(selected_plan.get('description','—') or '—').replace('<','&lt;').replace('>','&gt;').replace(chr(10),'<br>')[:200]}
+                {'…' if len(selected_plan.get('description','') or '') > 200 else ''}
               </div>
             </div>
             """,
@@ -1034,7 +1034,7 @@ def _render_notifications(user: dict) -> None:
             def _style_log_status(val):
                 return "color: #4CAF50; font-weight:600;" if val == "sent" else "color: #EF4444; font-weight:600;"
 
-            styled_log = log_df.Styler.map(_style_log_status, subset=["Status"])
+            styled_log = log_df.style.map(_style_log_status, subset=["Status"])
             st.dataframe(styled_log, use_container_width=True, hide_index=True)
 
 
