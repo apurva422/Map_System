@@ -6,8 +6,7 @@ CEO / Business Head view — read-only across the entire organisation.
 Pages (driven by sidebar.py → current_page session key)
 ---------------------------------------------------------
   dashboard   → Summary metrics + 4 Plotly charts (Critical)
-  all_plans   → Full filterable read-only table — browse only, no downloads
-  export      → Format selector + download buttons (CSV / Excel / PDF)
+  all_plans   → Full filterable table + export download buttons (CSV / Excel / PDF)
 
 FIX LOG
 -------
@@ -17,9 +16,8 @@ FIX LOG
       Renaming before the call meant no columns matched → blank table.
       Fix: pass raw column names to generate_report; rename only for display.
 
-  v2: All Plans and Export pages were functionally identical.
-      All Plans is now a pure browse-only page (no download buttons).
-      Export is a focused Step 1/2/3 download flow with a compact preview.
+  v3: All Plans and Export pages merged into a single "All Plans" page.
+      The page now shows the filterable table and export buttons together.
 
   v2: Bar chart value labels were clipped by chart boundary.
       Fixed in dashboard_charts.py by adding y-axis range headroom.
@@ -317,18 +315,16 @@ def _page_dashboard(df: pd.DataFrame) -> None:
         st.caption("Navigate to **All Plans** for the full filterable table.")
 
 
-# ── Page: All Plans (browse-only — no download buttons) ───────────────────────
+# ── Page: All Plans (browse + export) ─────────────────────────────────────────
 
 def _page_all_plans(df: pd.DataFrame) -> None:
     """
-    Pure read-only browse page.
-    No download buttons — use the Export page for that.
-    This keeps the two pages distinct: browse here, download there.
+    Unified browse + export page.
+    Filter, view the full table, and download in CSV / Excel / PDF.
     """
-    st.markdown("### 📋 All Action Plans — Read Only")
+    st.markdown("### 📋 All Action Plans")
     st.caption(
-        "Browse and filter every Action Plan across the organisation. "
-        "To download data, use **📤 Export** in the sidebar."
+        "Browse, filter, and export every Action Plan across the organisation."
     )
     st.divider()
 
@@ -336,61 +332,11 @@ def _page_all_plans(df: pd.DataFrame) -> None:
     st.divider()
     _render_table(df_filtered)
 
+    # ── Export section ────────────────────────────────────────────────
     if not df_filtered.empty:
-        st.markdown(
-            "<div style='text-align:right;margin-top:0.5rem;'>"
-            "<small style='color:#6B7280;'>Need to download? "
-            "Use 📤 <strong>Export</strong> in the sidebar.</small></div>",
-            unsafe_allow_html=True,
-        )
-
-
-# ── Page: Export (step-by-step download flow) ─────────────────────────────────
-
-def _page_export(df: pd.DataFrame) -> None:
-    """
-    Focused download page — filter → compact preview → download.
-    No full table browser (that's All Plans).
-    """
-    st.markdown("### 📤 Export Action Plans")
-    st.caption(
-        "Filter the dataset, confirm the preview, then download in your format."
-    )
-    st.divider()
-
-    # Step 1 — Filter
-    st.markdown("**Step 1 — Filter** *(optional)*")
-    df_filtered = _build_filter_bar(df, prefix="ceo_export")
-
-    st.divider()
-
-    # Step 2 — Preview (5 rows max)
-    record_count = len(df_filtered)
-    st.markdown(
-        f"**Step 2 — Preview** &nbsp;"
-        f"<span style='color:#6B7280;font-size:0.85rem;'>"
-        f"{record_count} record(s) will be exported</span>",
-        unsafe_allow_html=True,
-    )
-
-    if df_filtered.empty:
-        st.info("No records match the selected filters. Adjust the filters above.")
-        return
-
-    preview_cols = [c for c in _DISPLAY_COLUMNS if c in df_filtered.columns]
-    preview_df   = df_filtered[preview_cols].head(5).rename(columns=_DISPLAY_HEADERS)
-    st.dataframe(preview_df, use_container_width=True, hide_index=True)
-    if record_count > 5:
-        st.caption(
-            f"_Showing first 5 of {record_count} rows. "
-            "All rows are included in the downloaded file._"
-        )
-
-    st.divider()
-
-    # Step 3 — Download
-    st.markdown("**Step 3 — Download**")
-    _render_export_buttons(df_filtered, label_prefix="ceo_export_dl")
+        st.divider()
+        st.markdown("#### 📤 Export")
+        _render_export_buttons(df_filtered, label_prefix="ceo_all_dl")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -402,9 +348,7 @@ def render() -> None:
 
     if page == "dashboard":
         _page_dashboard(df)
-    elif page == "all_plans":
+    elif page in ("all_plans", "export"):
         _page_all_plans(df)
-    elif page == "export":
-        _page_export(df)
     else:
         _page_dashboard(df)

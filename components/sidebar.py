@@ -36,8 +36,7 @@ _NAV_ITEMS = {
     ],
     "CEO": [
         ("📊", "Leadership Dashboard",  "dashboard"),
-        ("📋", "All Plans (Read Only)", "all_plans"),
-        ("📤", "Export",                "export"),
+        ("📋", "All Plans",             "all_plans"),
     ],
 }
 
