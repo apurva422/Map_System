@@ -1,49 +1,18 @@
-"""
-auth.py
-=======
-Centralised authentication layer for the MAP System.
-
-Public API
-----------
-login()             →  renders the login form; populates session on success
-logout()            →  clears session state
-require_auth()      →  call at the top of every view; stops unauthenticated access
-get_current_user()  →  returns the user dict from session (or None)
-
-Session state schema (st.session_state["user"])
-------------------------------------------------
-{
-    "auth_uid": str,   # Supabase Auth UID
-    "emp_id":   str,   # employee record ID
-    "db_id":    str,   # UUID primary key in employees table
-    "name":     str,
-    "role":     str,   # "Manager" | "HRBP" | "Admin" | "CEO"
-    "zone":     str,
-    "function": str,   # department / function from employees table
-    "email":    str,
-}
-"""
+"""Auth layer — login, logout, require_auth, get_current_user."""
 
 import streamlit as st
 from database.supabase_client import supabase, get_service_client
 from config import APP_ICON, ROLE_COLOURS
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────────
+# Internal helpers
 
 def _fetch_employee_profile(auth_uid: str) -> dict | None:
-    """
-    Join auth_users → employees to build the full session user dict.
-
-    Uses the service client for BOTH queries so RLS never blocks the
-    login profile fetch — the anon client's session hasn't fully
-    propagated at the moment this runs, so RLS would return 0 rows.
-    The service client is the correct tool for this internal bootstrap.
-    """
+    """Build session user dict from auth_users + employees (service client)."""
     try:
         client = get_service_client()
 
-        # 1. Get the bridge row (auth_uid → emp_id, role, zone)
+        # Bridge row: auth_uid → emp_id, role, zone
         auth_row = (
             client
             .from_("auth_users")
@@ -59,7 +28,7 @@ def _fetch_employee_profile(auth_uid: str) -> dict | None:
         role   = auth_row.data["role"]
         zone   = auth_row.data["zone"]
 
-        # 2. Get display name and email from employees
+        # Employee details
         emp_row = (
             client
             .from_("employees")
@@ -74,7 +43,7 @@ def _fetch_employee_profile(auth_uid: str) -> dict | None:
         return {
             "auth_uid":  auth_uid,
             "emp_id":    emp_id,
-            "db_id":     emp_row.data["id"],   # UUID PK in employees table
+            "db_id":     emp_row.data["id"],
             "name":      emp_row.data["name"],
             "email":     emp_row.data["email"],
             "role":      role,
@@ -97,20 +66,15 @@ def _clear_session() -> None:
         st.session_state.pop(key, None)
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# Public API
 
 def get_current_user() -> dict | None:
-    """Return the logged-in user dict, or None if not authenticated."""
+    """Return logged-in user dict or None."""
     return st.session_state.get("user")
 
 
 def require_auth() -> dict:
-    """
-    Guard function — place at the top of every view render function.
-    If the user is not authenticated, renders the login page and stops
-    execution via st.stop().
-    Returns the user dict when authenticated.
-    """
+    """Guard — renders login + st.stop() if unauthenticated, else returns user."""
     if not st.session_state.get("authenticated"):
         login()
         st.stop()
@@ -118,22 +82,17 @@ def require_auth() -> dict:
 
 
 def logout() -> None:
-    """Sign out of Supabase Auth and clear local session."""
+    """Sign out and clear session."""
     try:
         supabase.auth.sign_out()
     except Exception:
-        pass  # even if the server call fails, clear local state
+        pass
     _clear_session()
     st.rerun()
 
 
 def login() -> None:
-    """
-    Render the login page.
-    On successful Supabase Auth sign-in, fetches the employee profile
-    using the service client and stores it in session state, then calls
-    st.rerun() so the role router in app.py takes over.
-    """
+    """Render login page; on success, store profile and rerun."""
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown(

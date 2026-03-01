@@ -1,32 +1,4 @@
-"""
-views/ceo.py
-============
-CEO / Business Head view — read-only across the entire organisation.
-
-Pages (driven by sidebar.py → current_page session key)
----------------------------------------------------------
-  dashboard   → Filter bar + 6 Plotly charts + metrics strip (all update live)
-  all_plans   → Full filterable read-only table + export buttons
-
-Dashboard filter bar
---------------------
-Zone, Function, and Status multiselects sit at the top of the dashboard.
-Every chart and every metric card is drawn from the filtered DataFrame,
-so selecting "North Zone" instantly narrows all 6 charts to that zone.
-
-Chart layout (dashboard)
-------------------------
-  Metrics strip  — 4 KPI cards
-  Row 1          — Plans by Zone  |  Plans by Function
-  Row 2          — WEF Distribution (wide)  |  Status Donut
-  Row 3          — Status by Zone (grouped) |  Monthly Trend
-
-FIX LOG
--------
-  v2: PDF blank — pass raw column names to generate_report (not renamed).
-  v2: All Plans / Export pages merged; bar labels clipped → fixed with headroom.
-  v3: Dashboard filter bar added; 2 new charts (status_by_zone, plans_over_time).
-"""
+"""CEO view — read-only dashboard with charts + all plans table with export."""
 
 from __future__ import annotations
 
@@ -48,7 +20,7 @@ from components.dashboard_charts import (
 from utils.export_utils import generate_report
 
 
-# ── WEF element lookup ────────────────────────────────────────────────────────
+# WEF element labels
 
 _WEF_LABELS: dict[int, str] = {
     1:  "Q1 · Clear Expectations",
@@ -66,14 +38,11 @@ _WEF_LABELS: dict[int, str] = {
 }
 
 
-# ── Data loading ──────────────────────────────────────────────────────────────
+# Data loading──
 
 @st.cache_data(ttl=60, show_spinner=False)
 def _load_all_plans() -> pd.DataFrame:
-    """
-    Fetch every action plan + manager name.
-    Cached 60 s — short enough to reflect new plans without hammering Supabase.
-    """
+    """Fetch all plans + manager names (cached 60s)."""
     try:
         client = get_service_client()
 
@@ -99,7 +68,7 @@ def _load_all_plans() -> pd.DataFrame:
             df["wef_element"].astype(str)
         )
 
-        # Format dates for display; keep original strings for the trend chart parser
+        # Format dates for display
         for col in ("start_date", "target_date", "created_at", "updated_at"):
             if col in df.columns:
                 df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%d %b %Y")
@@ -116,15 +85,14 @@ def _refresh() -> None:
     st.rerun()
 
 
-# ── Column definitions ────────────────────────────────────────────────────────
+# Column definitions
 
 _DISPLAY_COLUMNS = [
     "manager_name", "zone", "function", "wef_label",
     "title", "status", "start_date", "target_date", "created_at",
 ]
 
-# Raw column names — DO NOT rename before passing to generate_report().
-# _build_pdf in export_utils.py maps these raw names to display headers.
+# Raw column names for generate_report (PDF maps these to display headers)
 _EXPORT_COLUMNS = [
     "manager_name", "zone", "function", "wef_element",
     "title", "status", "start_date", "target_date",
@@ -143,7 +111,7 @@ _DISPLAY_HEADERS = {
 }
 
 
-# ── Shared UI helpers ─────────────────────────────────────────────────────────
+# UI helpers
 
 def _render_table(df: pd.DataFrame) -> None:
     if df.empty:
@@ -165,7 +133,7 @@ def _render_table(df: pd.DataFrame) -> None:
 
 
 def _render_export_buttons(df: pd.DataFrame, label_prefix: str) -> None:
-    """Pass raw column names to generate_report — _build_pdf needs them."""
+    """Export buttons with raw column names for generate_report."""
     if df.empty:
         st.info("No data to export.")
         return
@@ -199,14 +167,10 @@ def _render_export_buttons(df: pd.DataFrame, label_prefix: str) -> None:
             st.error(f"PDF generation failed: {exc}")
 
 
-# ── Dashboard filter bar ──────────────────────────────────────────────────────
+# Dashboard filter bar
 
 def _render_dashboard_filter_bar(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compact filter bar rendered inside the dashboard page.
-    Returns a filtered copy of df — every chart and metric reads from this.
-    Filters are persisted in session_state so they survive Streamlit reruns.
-    """
+    """Filter bar; returns filtered df for all charts/metrics."""
     if df.empty:
         return df
 
@@ -255,7 +219,7 @@ def _render_dashboard_filter_bar(df: pd.DataFrame) -> pd.DataFrame:
                 placeholder="All managers",
             )
 
-    # Apply filters — only filter on dimensions the user actually set
+    # Apply
     filtered = df.copy()
     if sel_zones:
         filtered = filtered[filtered["zone"].isin(sel_zones)]
@@ -266,7 +230,7 @@ def _render_dashboard_filter_bar(df: pd.DataFrame) -> pd.DataFrame:
     if sel_mgrs:
         filtered = filtered[filtered["manager_name"].isin(sel_mgrs)]
 
-    # Active filter count badge
+    # Active filter badge
     n_active = sum(bool(x) for x in [sel_zones, sel_funcs, sel_status, sel_mgrs])
     if n_active:
         st.markdown(
@@ -280,7 +244,7 @@ def _render_dashboard_filter_bar(df: pd.DataFrame) -> pd.DataFrame:
     return filtered
 
 
-# ── Page: Dashboard ───────────────────────────────────────────────────────────
+# Page: Dashboard──
 
 def _page_dashboard(df: pd.DataFrame) -> None:
     user = get_current_user()
@@ -300,12 +264,12 @@ def _page_dashboard(df: pd.DataFrame) -> None:
 
     st.divider()
 
-    # ── Filter bar — returns the filtered df used by ALL charts below ─────────
+    # Filter bar → filtered df for all charts 
     df_filtered = _render_dashboard_filter_bar(df)
 
     st.divider()
 
-    # ── Metrics strip (responds to filters) ───────────────────────────────────
+    # Metrics strip
     summary_metrics_strip(df_filtered)
 
     st.divider()
@@ -314,7 +278,7 @@ def _page_dashboard(df: pd.DataFrame) -> None:
         st.info("No Action Plans match the active filters.")
         return
 
-    # ── Row 1: Zone + Function bars ───────────────────────────────────────────
+    # Row 1: Zone + Function
     st.markdown("#### Plan Distribution")
     col_l, col_r = st.columns(2)
 
@@ -330,7 +294,7 @@ def _page_dashboard(df: pd.DataFrame) -> None:
 
     st.divider()
 
-    # ── Row 2: WEF hbar + Status donut ────────────────────────────────────────
+    # Row 2: WEF + Status donut
     st.markdown("#### Engagement Framework & Progress")
     col_wef, col_status = st.columns([3, 2])
 
@@ -346,7 +310,7 @@ def _page_dashboard(df: pd.DataFrame) -> None:
 
     st.divider()
 
-    # ── Row 3: Status by Zone (grouped) + Monthly Trend ──────────────────────
+    # Row 3: Status by Zone + Monthly Trend
     st.markdown("#### Zone Health & Adoption Trend")
     col_grp, col_trend = st.columns(2)
 
@@ -356,29 +320,27 @@ def _page_dashboard(df: pd.DataFrame) -> None:
             st.plotly_chart(fig, use_container_width=True, key="ceo_status_zone")
 
     with col_trend:
-        # Monthly trend uses the full (unfiltered) df when a zone is selected
-        # so the cumulative line represents the true org-wide ramp.
-        # When no filter is set, filtered == full df so it doesn't matter.
+        # Trend uses filtered df
         fig = chart_plans_over_time(df_filtered)
         if fig:
             st.plotly_chart(fig, use_container_width=True, key="ceo_trend")
 
-    # ── Recent snapshot ───────────────────────────────────────────────────────
+    # Recent snapshot
     st.divider()
     with st.expander("📋 Recent Plans Snapshot (latest 10 in filtered view)", expanded=False):
         _render_table(df_filtered.head(10))
         st.caption("Navigate to **All Plans** for the full table.")
 
 
-# ── Page: All Plans (browse + export) ─────────────────────────────────────────
+# Page: All Plans
 
 def _page_all_plans(df: pd.DataFrame) -> None:
-    """Browse and download — filter bar + full table + export buttons."""
+    """Browse, filter, and export all plans."""
     st.markdown("### 📋 All Action Plans")
     st.caption("Browse, filter, and export every Action Plan across the organisation.")
     st.divider()
 
-    # Filter bar (separate keys from dashboard so state doesn't bleed)
+    # Filters (separate keys from dashboard)
     c1, c2, c3, c4 = st.columns(4)
     filtered = df.copy()
 
@@ -411,10 +373,10 @@ def _page_all_plans(df: pd.DataFrame) -> None:
         _render_export_buttons(filtered, label_prefix="ceo_ap")
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# Entry point   
 
 def render() -> None:
-    """Called by app.py's role router when role == 'CEO'."""
+    """Route to the correct CEO page."""
     df   = _load_all_plans()
     page = get_current_page()
 

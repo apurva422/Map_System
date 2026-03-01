@@ -1,14 +1,4 @@
-"""
-views/manager.py
-================
-Full Manager View for the MAP System.
-
-Pages (routed via st.session_state["current_page"])
-----------------------------------------------------
-dashboard    → Summary cards + plan list overview
-create_plan  → Create a new Action Plan
-my_plans     → List all own plans; click into any for detail/edit/progress
-"""
+"""Manager view — dashboard, create plan, my plans."""
 
 from __future__ import annotations
 
@@ -23,9 +13,7 @@ from components.sidebar import get_current_page
 from utils.email_service import send_plan_created
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# DATA LAYER  — all DB calls isolated here for easy testing / replacement
-# ═══════════════════════════════════════════════════════════════════════════════
+# Data layer
 
 def _fetch_my_plans(manager_db_id: str) -> list[dict]:
     """Return all action plans belonging to the current manager, newest first."""
@@ -195,9 +183,7 @@ def _fetch_manager_function(manager_db_id: str) -> str:
         return ""
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# UI HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
+# UI helpers
 
 def _status_badge_html(status: str) -> str:
     colour = STATUS_COLOURS.get(status, "#9E9E9E")
@@ -219,7 +205,7 @@ def _metric_card(label: str, value: str | int, colour: str = "#2E75B6") -> str:
 
 
 def _plan_card_html(plan: dict, idx: int) -> str:
-    """HTML card for a plan in the list view."""
+    """HTML card for a plan."""
     status   = plan.get("status", "Initiated")
     colour   = STATUS_COLOURS.get(status, "#9E9E9E")
     wef_num  = plan.get("wef_element", "—")
@@ -263,18 +249,16 @@ def _format_update_time(iso_str: str) -> str:
         return iso_str[:16] if iso_str else "—"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE RENDERERS
-# ═══════════════════════════════════════════════════════════════════════════════
+# Page renderers
 
 def _render_dashboard(user: dict) -> None:
-    """Dashboard: summary cards + quick plan list."""
+    """Dashboard with metrics and recent plans."""
     st.markdown("## 🏠 My Dashboard")
 
     manager_db_id = user["db_id"]
     plans = _fetch_my_plans(manager_db_id)
 
-    # ── Summary metrics ──────────────────────────────────────────────────────
+    # Metrics
     total     = len(plans)
     initiated = sum(1 for p in plans if p.get("status") == "Initiated")
     ongoing   = sum(1 for p in plans if p.get("status") == "Ongoing")
@@ -294,7 +278,7 @@ def _render_dashboard(user: dict) -> None:
         with col:
             st.markdown(_metric_card(label, value, colour), unsafe_allow_html=True)
 
-    # ── WEF Coverage bar ─────────────────────────────────────────────────────
+    # WEF coverage
     st.markdown("---")
     st.markdown("#### 📊 WEF Element Coverage")
 
@@ -317,7 +301,7 @@ def _render_dashboard(user: dict) -> None:
 
     st.caption("Blue = Action Plan created | Grey = Not yet started")
 
-    # ── Recent plans list ─────────────────────────────────────────────────────
+    # Recent plans
     st.markdown("---")
     st.markdown("#### 📋 Recent Action Plans")
 
@@ -337,7 +321,7 @@ def _render_dashboard(user: dict) -> None:
         created   = plan.get("created_at", "")[:10] if plan.get("created_at") else "—"
 
         with st.container(border=True):
-            # Coloured left-accent bar + status badge in one row
+            # Accent bar + badge
             top_left, top_right = st.columns([5, 1])
             with top_left:
                 st.markdown(
@@ -360,10 +344,10 @@ def _render_dashboard(user: dict) -> None:
                     unsafe_allow_html=True,
                 )
 
-            # Date row
+            # Dates
             st.caption(f"📅 {plan.get('start_date','—')} → {plan.get('target_date','—')}   🕒 Created: {created}")
 
-            # Open button — sits inside the container border
+            # Open in editor
             if st.button(
                 "✏️ Open in Editor",
                 key=f"dash_open_{plan['id']}",
@@ -382,10 +366,8 @@ def _render_dashboard(user: dict) -> None:
         st.rerun()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _render_create_plan(user: dict) -> None:
-    """Create Action Plan page."""
+    """Create a new Action Plan."""
     st.markdown("## ➕ Create Action Plan")
     st.caption(
         "Create one Action Plan per Workplace Engagement Framework element. "
@@ -412,7 +394,7 @@ def _render_create_plan(user: dict) -> None:
     )
 
     def _on_create(payload: dict) -> None:
-        # Use zone and function from session (populated via service client at login)
+        # Zone & function from session
         function_ = user.get("function", "")
         zone      = user.get("zone", "")
 
@@ -422,7 +404,7 @@ def _render_create_plan(user: dict) -> None:
 
         plan_id = created.get("id")
 
-        # ── Email notification ────────────────────────────────────────────────
+        # Email notification
         rm_email = _fetch_reporting_manager_email(manager_db_id)
         send_plan_created(
             manager_email           = user["email"],
@@ -437,10 +419,10 @@ def _render_create_plan(user: dict) -> None:
             "Email notifications have been sent."
         )
 
-        # Invalidate cache so dashboard reflects the new plan immediately
+        # Invalidate cache
         st.session_state.pop("plans_cache", None)
 
-        # Brief pause so the user sees the success message, then navigate
+        # Brief pause then navigate
         import time; time.sleep(1.2)
         st.session_state["current_page"] = "my_plans"
         st.rerun()
@@ -454,11 +436,10 @@ def _render_create_plan(user: dict) -> None:
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _render_my_plans(user: dict) -> None:
-    """My Action Plans page — list view + drill-down into individual plan."""
-    # Sub-page: are we viewing a specific plan?
+    """My Action Plans — list or detail view."""
+    # Drill-down check
     selected_plan_id = st.session_state.get("selected_plan_id")
 
     if selected_plan_id:
@@ -468,7 +449,7 @@ def _render_my_plans(user: dict) -> None:
 
 
 def _render_plan_list(user: dict) -> None:
-    """List all action plans for this manager with filter controls."""
+    """List all plans with filters."""
     st.markdown("## 📝 My Action Plans")
 
     manager_db_id = user["db_id"]
@@ -481,7 +462,7 @@ def _render_plan_list(user: dict) -> None:
         )
         return
 
-    # ── Filters ───────────────────────────────────────────────────────────────
+    # Filters
     st.markdown("#### 🔍 Filter Plans")
     fcol1, fcol2 = st.columns(2)
 
@@ -507,7 +488,7 @@ def _render_plan_list(user: dict) -> None:
     st.markdown(f"<small style='color:#6B7280;'>Showing {len(filtered)} plan(s)</small>", unsafe_allow_html=True)
     st.markdown("---")
 
-    # ── Plan rows ─────────────────────────────────────────────────────────────
+    # Plan rows
     if not filtered:
         st.info("No plans match the selected filters.")
         return
@@ -548,10 +529,7 @@ def _render_plan_list(user: dict) -> None:
 
 
 def _render_plan_detail(user: dict, plan_id: str) -> None:
-    """
-    Detail view for a single action plan.
-    Tabs: Overview | Edit Plan | Add Progress Update | Progress History
-    """
+    """Detail view with tabs: Overview, Edit, Update, History."""
     plan = _fetch_plan_by_id(plan_id)
     if not plan:
         st.error("Plan not found. It may have been deleted.")
@@ -561,14 +539,14 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
 
     manager_db_id = user["db_id"]
 
-    # Security check: manager can only view their own plans
+    # Access check
     if plan.get("manager_id") != manager_db_id:
         st.error("Access denied. You can only view your own Action Plans.")
         st.session_state.pop("selected_plan_id", None)
         st.rerun()
         return
 
-    # ── Back button ───────────────────────────────────────────────────────────
+    # Back button
     if st.button("← Back to My Plans"):
         st.session_state.pop("selected_plan_id", None)
         st.rerun()
@@ -587,7 +565,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
         "📄 Overview", "✏️ Edit Plan", "➕ Add Progress Update", "📜 Progress History"
     ])
 
-    # ── Tab 1: Overview ───────────────────────────────────────────────────────
+    # Tab: Overview
     with tab_overview:
         col_a, col_b = st.columns(2)
         with col_a:
@@ -615,7 +593,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 col1.markdown(f"<small style='color:#6B7280;'>{key}</small>", unsafe_allow_html=True)
                 col2.markdown(f"<small style='color:#111827;font-weight:600;'>{val}</small>", unsafe_allow_html=True)
 
-        # Warn if the plan is overdue
+        # Overdue warning
         if plan.get("target_date"):
             try:
                 target = date.fromisoformat(plan["target_date"])
@@ -627,7 +605,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
             except ValueError:
                 pass
 
-    # ── Tab 2: Edit Plan ──────────────────────────────────────────────────────
+    # Tab: Edit
     with tab_edit:
         if status == "Closed":
             st.info("🔒 This plan is **Closed** and cannot be edited.")
@@ -652,7 +630,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 readonly      = False,
             )
 
-    # ── Tab 3: Add Progress Update ────────────────────────────────────────────
+    # Tab: Add Update
     with tab_update:
         if status == "Closed":
             st.info("🔒 This plan is **Closed**. No further updates can be added.")
@@ -682,10 +660,10 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 if not update_text.strip():
                     st.error("⚠️ Progress note cannot be empty.")
                 else:
-                    # Save the update
+                    # Save
                     ok = _add_progress_update(plan_id, manager_db_id, update_text.strip())
                     if ok:
-                        # Also update status if changed
+                        # Update status if changed
                         if new_status != status:
                             _update_plan(plan_id, {
                                 "title":       plan["title"],
@@ -698,7 +676,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                         import time; time.sleep(0.8)
                         st.rerun()
 
-    # ── Tab 4: Progress History ───────────────────────────────────────────────
+    # Tab: History
     with tab_history:
         st.markdown("#### 📜 Progress History")
         updates = _fetch_progress_updates(plan_id)
@@ -714,7 +692,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 time_str   = _format_update_time(upd.get("created_at", ""))
                 update_txt = upd.get("update_text", "—")
 
-                # Visual differentiation: Manager = blue, HRBP = green
+                # Blue = Manager, Green = HRBP
                 if role == "HRBP":
                     border_col = "#375623"
                     role_icon  = "🗺️ HRBP Update"
@@ -747,19 +725,16 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 st.markdown(card_html, unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TOP-LEVEL RENDER — called by app.py
-# ═══════════════════════════════════════════════════════════════════════════════
+# Entry point
 
 def render() -> None:
-    """Entry point called by the role router in app.py."""
+    """Route to the correct manager page."""
     user = get_current_user()
     if not user:
         st.error("Session expired. Please log in again.")
         st.stop()
 
-    # Eligibility guard — only LEVEL 2 Managers should land here,
-    # but double-check in the view as a safety net.
+    # Role guard
     if user.get("role") != "Manager":
         st.error("Access denied. This view is for Managers only.")
         st.stop()
@@ -773,6 +748,6 @@ def render() -> None:
     elif page == "my_plans":
         _render_my_plans(user)
     else:
-        # Unknown page key → fall back to dashboard
+        # Fallback
         st.session_state["current_page"] = "dashboard"
         _render_dashboard(user)

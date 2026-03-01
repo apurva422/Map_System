@@ -1,22 +1,4 @@
-"""
-components/action_plan_form.py
-==============================
-Reusable Action Plan form used by Manager (create & edit),
-HRBP (view/update), and Admin (edit any record).
-
-Public API
-----------
-render_form(
-    user:          dict,            # current session user
-    existing_plan: dict | None,     # None → CREATE mode; dict → EDIT mode
-    used_elements: list[int],       # WEF element numbers already used by this manager
-    on_submit:     callable | None, # callback(payload: dict) after DB write
-    readonly:      bool,            # True → display only, no save button (CEO view)
-) -> None
-
-Returns nothing; calls on_submit(payload) on success where payload mirrors
-the action_plans table row that was inserted/updated.
-"""
+"""Reusable Action Plan form — create, edit, or read-only display."""
 
 from __future__ import annotations
 
@@ -26,10 +8,10 @@ from datetime import date, timedelta
 from config import WEF_ELEMENTS, PLAN_STATUSES, STATUS_COLOURS
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# Helpers
 
 def _status_badge(status: str) -> str:
-    """Return an HTML badge string for a given status."""
+    """HTML badge for a status."""
     colour = STATUS_COLOURS.get(status, "#9E9E9E")
     return (
         f"<span style='"
@@ -42,14 +24,13 @@ def _status_badge(status: str) -> str:
 
 
 def _wef_label(element_num: int) -> str:
-    """Return 'Q1 — I know what is expected…' style label."""
+    """Return 'Q1 — I know what is expected…' label."""
     text = WEF_ELEMENTS.get(element_num, "Unknown")
-    # Truncate long strings for dropdown readability
     short = text if len(text) <= 70 else text[:67] + "…"
     return f"Q{element_num} — {short}"
 
 
-# ── Public render function ────────────────────────────────────────────────────
+# Public API
 
 def render_form(
     user: dict,
@@ -58,36 +39,25 @@ def render_form(
     on_submit: callable | None = None,
     readonly: bool = False,
 ) -> None:
-    """
-    Renders the Action Plan create/edit form.
-
-    Parameters
-    ----------
-    user           : session user dict (from get_current_user())
-    existing_plan  : pre-populated plan dict for EDIT mode (None = CREATE)
-    used_elements  : WEF element ints already taken by this manager;
-                     these are disabled in the dropdown during creation.
-    on_submit      : called with the submitted payload dict on success
-    readonly       : if True, renders a read-only display card only
-    """
+    """Render the Action Plan create/edit form."""
     used_elements = used_elements or []
     is_edit       = existing_plan is not None
 
-    # ── READ-ONLY display (CEO / HRBP plan detail view) ──────────────────────
+    # Read-only display
     if readonly and is_edit:
         _render_readonly_card(existing_plan)
         return
 
-    # ── Form heading ──────────────────────────────────────────────────────────
+    # Form
     form_key = f"ap_form_{'edit' if is_edit else 'create'}_{existing_plan.get('id', 'new') if is_edit else 'new'}"
 
     with st.form(form_key, clear_on_submit=not is_edit):
 
-        # ── WEF Element selector ──────────────────────────────────────────────
+        # WEF selector
         st.markdown("**Workplace Engagement Framework Element**")
 
         if is_edit:
-            # In edit mode, the WEF element is locked (cannot change after creation)
+            # WEF locked in edit mode
             locked_num = existing_plan.get("wef_element", 1)
             st.markdown(
                 f"<div style='background:#F3F4F6;border-radius:6px;padding:8px 12px;"
@@ -98,7 +68,7 @@ def render_form(
             )
             selected_element = locked_num
         else:
-            # Build options: all 12 elements; mark used ones
+            # Build available elements
             all_elements = list(range(1, 13))
             available    = [e for e in all_elements if e not in used_elements]
 
@@ -121,12 +91,12 @@ def render_form(
             )
             selected_element = available[options_display.index(chosen_label)]
 
-            # Show the full question text below the dropdown for clarity
+            # Show full question
             st.caption(f"📌 {WEF_ELEMENTS.get(selected_element, '')}")
 
         st.markdown("---")
 
-        # ── Core fields ───────────────────────────────────────────────────────
+        # Core fields
         col_left, col_right = st.columns(2)
 
         with col_left:
@@ -139,13 +109,12 @@ def render_form(
             )
 
         with col_right:
-            # Status — only shown in EDIT mode (defaults to Initiated on create)
+            # Status shown in edit mode only
             if is_edit:
                 current_status = existing_plan.get("status", "Initiated")
                 status_options = PLAN_STATUSES
 
-                # Enforce forward-only progression in the UI hint
-                # (DB / RLS doesn't block going backwards, but UX guides it)
+                # Forward-only guidance
                 status = st.selectbox(
                     "Status *",
                     options=status_options,
@@ -153,7 +122,7 @@ def render_form(
                     help="Initiated → Ongoing → Closed. Closed is the terminal state.",
                 )
             else:
-                status = "Initiated"  # always Initiated on creation
+                status = "Initiated"
                 st.markdown(
                     "<div style='margin-top:1.6rem;'>"
                     + _status_badge("Initiated")
@@ -200,11 +169,11 @@ def render_form(
 
         st.markdown("---")
 
-        # ── Submit ────────────────────────────────────────────────────────────
+        # Submit
         btn_label = "💾 Update Action Plan" if is_edit else "🚀 Create Action Plan"
         submitted = st.form_submit_button(btn_label, use_container_width=True)
 
-    # ── Validation & callback (outside the form block) ────────────────────────
+    # Validation & callback
     if submitted:
         errors = []
         if not title.strip():
@@ -232,10 +201,10 @@ def render_form(
             on_submit(payload)
 
 
-# ── Read-only card ─────────────────────────────────────────────────────────────
+# Read-only card
 
 def _render_readonly_card(plan: dict) -> None:
-    """Render a read-only display of a plan (used by CEO view)."""
+    """Read-only plan card (CEO view)."""
     status  = plan.get("status", "—")
     colour  = STATUS_COLOURS.get(status, "#9E9E9E")
     wef_num = plan.get("wef_element", "—")

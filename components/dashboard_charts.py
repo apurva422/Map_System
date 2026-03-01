@@ -1,21 +1,4 @@
-"""
-components/dashboard_charts.py
-===============================
-Reusable Plotly chart functions consumed by ceo.py (and optionally admin.py).
-
-All functions accept a pre-filtered DataFrame and return a Plotly Figure,
-or render st.info() and return None when data is absent.
-
-Functions
----------
-chart_plans_by_zone(df)         → bar    — Total plans per zone
-chart_plans_by_function(df)     → bar    — Total plans per function
-chart_wef_distribution(df)      → hbar   — Plans per WEF element (all 12 shown)
-chart_status_distribution(df)   → donut  — Initiated / Ongoing / Closed
-chart_status_by_zone(df)        → grouped bar — Status breakdown per zone  [NEW]
-chart_plans_over_time(df)       → line   — Monthly plan creation trend      [NEW]
-summary_metrics_strip(df)       → 4 st.metric cards (responds to filters)
-"""
+"""Plotly chart functions for CEO dashboard (and optionally admin)."""
 
 from __future__ import annotations
 
@@ -24,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 
-# ── Design tokens (match style.css palette) ───────────────────────────────────
+# Design tokens
 
 _BRAND_BLUE   = "#2E75B6"
 _BRAND_GREY   = "#E5E7EB"
@@ -55,7 +38,7 @@ _WEF_LABELS: dict[int, str] = {
     12: "Q12 · Learn & Grow",
 }
 
-# Shared layout kwargs — no margin or showlegend (each chart sets its own)
+# Shared layout
 _BASE_LAYOUT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
@@ -63,18 +46,18 @@ _BASE_LAYOUT = dict(
 )
 
 
-# ── Internal helper ───────────────────────────────────────────────────────────
+# Helpers
 
 def _y_max(series: pd.Series) -> float:
-    """Return a y-axis ceiling with 25 % headroom so outside labels never clip."""
+    """Y-axis ceiling with 25% headroom."""
     m = int(series.max()) if len(series) else 1
     return max(m * 1.25, m + 1)
 
 
-# ── 1. Plans by Zone ──────────────────────────────────────────────────────────
+# 1. Plans by Zone
 
 def chart_plans_by_zone(df: pd.DataFrame) -> go.Figure | None:
-    """Vertical bar — total Action Plans per Zone."""
+    """Bar — plans per zone."""
     if df.empty or "zone" not in df.columns:
         st.info("No zone data available.")
         return None
@@ -110,10 +93,10 @@ def chart_plans_by_zone(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-# ── 2. Plans by Function ──────────────────────────────────────────────────────
+# 2. Plans by Function
 
 def chart_plans_by_function(df: pd.DataFrame) -> go.Figure | None:
-    """Vertical bar — total Action Plans per Function."""
+    """Bar — plans per function."""
     if df.empty or "function" not in df.columns:
         st.info("No function data available.")
         return None
@@ -150,10 +133,10 @@ def chart_plans_by_function(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-# ── 3. WEF Element Distribution ───────────────────────────────────────────────
+# 3. WEF Distribution
 
 def chart_wef_distribution(df: pd.DataFrame) -> go.Figure | None:
-    """Horizontal bar — plans per WEF element (all 12 always shown)."""
+    """H-bar — plans per WEF element."""
     if df.empty or "wef_element" not in df.columns:
         st.info("No WEF data available.")
         return None
@@ -198,10 +181,10 @@ def chart_wef_distribution(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-# ── 4. Status Distribution (donut) ───────────────────────────────────────────
+# 4. Status Distribution (donut)
 
 def chart_status_distribution(df: pd.DataFrame) -> go.Figure | None:
-    """Donut — Initiated / Ongoing / Closed breakdown."""
+    """Donut — status breakdown."""
     if df.empty or "status" not in df.columns:
         st.info("No status data available.")
         return None
@@ -239,7 +222,7 @@ def chart_status_distribution(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-# ── 5. Status Breakdown by Zone (grouped bar) ─────────────────────────────────
+# 5. Status by Zone (grouped bar)
 
 def chart_status_by_zone(df: pd.DataFrame) -> go.Figure | None:
     """
@@ -309,7 +292,7 @@ def chart_status_by_zone(df: pd.DataFrame) -> go.Figure | None:
     return fig
 
 
-# ── 6. Plans Created Over Time (monthly line) ─────────────────────────────────
+# 6. Plans Created Over Time (monthly line) 
 
 def chart_plans_over_time(df: pd.DataFrame) -> go.Figure | None:
     """

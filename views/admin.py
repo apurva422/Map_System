@@ -1,20 +1,4 @@
-"""
-views/admin.py
-==============
-Admin (HR CoE) view for the MAP System.
-
-Pages (driven by sidebar nav keys from components/sidebar.py):
-  dashboard    → Overview — summary metrics + quick stats table
-  all_plans    → Full data table across all zones; inline edit any record
-  feedback     → Send Clarification / Improvement feedback to managers
-  export       → Export all plans as CSV / Excel / PDF; email as attachment
-  onboarding   → Stage 1 — eligibility check + invitation email blast
-  notifications → Manual notification composer + weekly reminder trigger
-
-All DB queries use get_service_client() so RLS does not restrict access.
-The anon client is used only for writes that should still respect RLS
-(e.g. inserting admin_feedback rows tied to a specific plan).
-"""
+"""Admin (HR CoE) view — overview, plans, feedback, export, onboarding, notifications."""
 
 from __future__ import annotations
 
@@ -40,13 +24,10 @@ from utils.email_service import (
 from utils.export_utils import generate_report, save_temp_file
 from utils.validators import get_eligible_managers
 
-# ── Colour constant ───────────────────────────────────────────────────────────
-ADMIN_COLOUR = ROLE_COLOURS["Admin"]   # #C55A11
+ADMIN_COLOUR = ROLE_COLOURS["Admin"]
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Shared DB helpers
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- DB helpers ---
 
 def _fetch_all_plans() -> list[dict]:
     """Return all action plans with manager name denormalized. Uses service client."""
@@ -71,7 +52,7 @@ def _fetch_all_plans() -> list[dict]:
 
 
 def _plans_to_df(plans: list[dict]) -> pd.DataFrame:
-    """Convert list of plan dicts to a display DataFrame."""
+    """Convert plan dicts to a display DataFrame."""
     if not plans:
         return pd.DataFrame()
 
@@ -152,9 +133,7 @@ def _fetch_notification_log(limit: int = 100) -> list[dict]:
     return rows
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Reusable UI helpers
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- UI helpers ---
 
 def _status_badge_html(status: str) -> str:
     c = STATUS_COLOURS.get(status, "#9E9E9E")
@@ -197,9 +176,7 @@ def _metric_card(label: str, value: str, delta: str = "") -> str:
     """
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Page: Overview / Dashboard
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Page: Overview ---
 
 def _render_overview(user: dict) -> None:
     _section_header("🏠", "Admin Overview", "Full organisational view — all zones & functions")
@@ -235,7 +212,7 @@ def _render_overview(user: dict) -> None:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Status breakdown by zone mini-table
+    # By zone & status
     st.markdown("#### Plans by Zone & Status")
     pivot = (
         df.groupby(["zone", "status"])
@@ -250,7 +227,7 @@ def _render_overview(user: dict) -> None:
     pivot = pivot.rename(columns={"zone": "Zone"})
     st.dataframe(pivot, use_container_width=True, hide_index=True)
 
-    # WEF element coverage
+    # WEF coverage
     st.markdown("#### WEF Element Coverage")
     wef_counts = df["wef_element"].value_counts().sort_index().reset_index()
     wef_counts.columns = ["WEF Element", "Plan Count"]
@@ -260,14 +237,12 @@ def _render_overview(user: dict) -> None:
     st.dataframe(wef_counts[["Question", "Plan Count"]], use_container_width=True, hide_index=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Page: All Action Plans (with inline edit)
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Page: All Plans ---
 
 def _render_all_plans(user: dict) -> None:
     _section_header("📋", "All Action Plans", "View, filter, and edit any record across all zones")
 
-    # ── Drill-down: editing a specific plan ───────────────────────────────────
+    # Editing drill-down
     editing_id = st.session_state.get("admin_editing_plan_id")
     if editing_id:
         _render_edit_panel(user, editing_id)
@@ -280,7 +255,7 @@ def _render_all_plans(user: dict) -> None:
         st.info("No action plans found.")
         return
 
-    # ── Filters ───────────────────────────────────────────────────────────────
+    # Filters
     with st.expander("🔍 Filters", expanded=True):
         fc1, fc2, fc3, fc4, fc5 = st.columns(5)
 
@@ -300,7 +275,7 @@ def _render_all_plans(user: dict) -> None:
             status_opts = ["All"] + PLAN_STATUSES
             sel_status  = st.selectbox("Status", status_opts, key="ap_filter_status")
 
-    # Apply filters
+    # Apply
     fdf = df.copy()
     if sel_zone   != "All": fdf = fdf[fdf["zone"]         == sel_zone]
     if sel_func   != "All": fdf = fdf[fdf["function"]     == sel_func]
@@ -312,7 +287,7 @@ def _render_all_plans(user: dict) -> None:
 
     st.caption(f"Showing **{len(fdf)}** of **{len(df)}** plans")
 
-    # ── Plan table ────────────────────────────────────────────────────────────
+    # Plan table
     if fdf.empty:
         st.warning("No plans match the selected filters.")
         return
@@ -331,7 +306,7 @@ def _render_all_plans(user: dict) -> None:
     }
     show_df = fdf[display_cols].rename(columns=rename_map)
 
-    # Style status column
+    # Style status
     def _style_status(val):
         colour = STATUS_COLOURS.get(val, "#9E9E9E")
         return f"color: {colour}; font-weight: 600;"
@@ -339,7 +314,7 @@ def _render_all_plans(user: dict) -> None:
     styled = show_df.style.map(_style_status, subset=["Status"])
     st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    # ── Select plan to edit ───────────────────────────────────────────────────
+    # Select plan to edit
     st.markdown("---")
     st.markdown("**Select a plan to edit:**")
     plan_titles = fdf["title"].tolist()
@@ -361,14 +336,14 @@ def _render_all_plans(user: dict) -> None:
 
 
 def _render_edit_panel(user: dict, plan_id: str) -> None:
-    """Show the edit form + progress history for a specific plan."""
+    """Edit form + progress history for a plan."""
     client = get_service_client()
 
     if st.button("← Back to All Plans"):
         st.session_state.pop("admin_editing_plan_id", None)
         st.rerun()
 
-    # Fetch the plan
+    # Fetch plan
     resp = (
         client
         .from_("action_plans")
@@ -402,7 +377,7 @@ def _render_edit_panel(user: dict, plan_id: str) -> None:
     )
     st.markdown("---")
 
-    # ── Edit form (uses the shared reusable component) ────────────────────────
+    # Edit form
     def _on_admin_edit(payload: dict) -> None:
         payload["updated_at"] = datetime.utcnow().isoformat()
         try:
@@ -420,12 +395,12 @@ def _render_edit_panel(user: dict, plan_id: str) -> None:
     render_form(
         user          = user,
         existing_plan = plan,
-        used_elements = [],        # Admin can change status/dates/desc; WEF is locked anyway
+        used_elements = [],
         on_submit     = _on_admin_edit,
         readonly      = False,
     )
 
-    # ── Progress history ──────────────────────────────────────────────────────
+    # Progress history
     st.markdown("---")
     st.markdown("#### 📝 Progress History")
     updates = _fetch_progress(plan_id)
@@ -459,9 +434,7 @@ def _render_edit_panel(user: dict, plan_id: str) -> None:
             )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Page: Send Feedback to Manager
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Page: Feedback ---
 
 def _render_feedback(user: dict) -> None:
     _section_header(
@@ -474,7 +447,7 @@ def _render_feedback(user: dict) -> None:
         st.info("No action plans available to give feedback on.")
         return
 
-    # Build a readable label for each plan
+    # Plan label map
     plan_options: dict[str, dict] = {
         f"{p['manager_name']} — Q{p['wef_element']} | {p['title']} [{p['status']}]": p
         for p in plans
@@ -487,7 +460,7 @@ def _render_feedback(user: dict) -> None:
     )
     selected_plan = plan_options[chosen_label]
 
-    # Show plan summary
+    # Plan summary
     with st.container():
         st.markdown(
             f"""
@@ -532,7 +505,7 @@ def _render_feedback(user: dict) -> None:
                 st.error("Please write a feedback message before sending.")
                 return
 
-            # Save to admin_feedback table
+            # Save feedback
             try:
                 supabase.from_("admin_feedback").insert({
                     "action_plan_id": selected_plan["id"],
@@ -545,7 +518,7 @@ def _render_feedback(user: dict) -> None:
                 st.error(f"Failed to save feedback record: {exc}")
                 return
 
-            # Send email
+            # Email
             ok = send_admin_feedback(
                 manager_email  = selected_plan["manager_email"],
                 feedback_text  = feedback_text.strip(),
@@ -566,7 +539,7 @@ def _render_feedback(user: dict) -> None:
                     "be delivered. Check your email configuration in .env."
                 )
 
-    # ── Feedback history for this plan ────────────────────────────────────────
+    # Feedback history
     st.markdown("---")
     st.markdown("#### 📜 Feedback History for Selected Plan")
     client = get_service_client()
@@ -606,9 +579,7 @@ def _render_feedback(user: dict) -> None:
             )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Page: Export / Email
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Page: Export ---
 
 def _render_export(user: dict) -> None:
     _section_header(
@@ -623,7 +594,7 @@ def _render_export(user: dict) -> None:
         st.info("No action plans to export yet.")
         return
 
-    # ── Optional zone filter ──────────────────────────────────────────────────
+    # Zone filter
     zone_opts = ["All Zones"] + sorted(df["zone"].dropna().unique().tolist())
     sel_zone  = st.selectbox("Filter by Zone (optional)", zone_opts, key="export_zone")
     export_df = df if sel_zone == "All Zones" else df[df["zone"] == sel_zone]
@@ -632,8 +603,7 @@ def _render_export(user: dict) -> None:
         "manager_name", "zone", "function", "wef_element",
         "title", "description", "status", "start_date", "target_date",
     ]
-    # export_df  → original column names  → passed to generate_report (PDF/CSV/Excel)
-    # display_df → renamed column names   → shown in the on-screen preview only
+    # export_df has raw names for generate_report; display_df has renamed names for preview
     export_df = export_df[[c for c in report_cols if c in export_df.columns]].copy()
 
     display_df = export_df.rename(columns={
@@ -697,7 +667,7 @@ def _render_export(user: dict) -> None:
         except Exception as exc:
             st.error(f"PDF generation error: {exc}")
 
-    # ── Email report ──────────────────────────────────────────────────────────
+    # Email report
     st.markdown("---")
     st.markdown("#### Email Report")
 
@@ -750,9 +720,7 @@ def _render_export(user: dict) -> None:
             st.error(f"Export / email error: {exc}")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Page: Manager Onboarding (Stage 1)
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Page: Onboarding ---
 
 def _render_onboarding(user: dict) -> None:
     _section_header(
@@ -780,7 +748,7 @@ def _render_onboarding(user: dict) -> None:
             st.warning("No eligible managers found (Role=Manager AND Level=LEVEL 2).")
         return
 
-    # ── Cross-reference with invitations already sent ─────────────────────────
+    # Already-invited check
     client = get_service_client()
     inv_resp = (
         client
@@ -856,14 +824,12 @@ def _render_onboarding(user: dict) -> None:
                     icon="⚠️",
                 )
 
-            # Refresh eligible list to update statuses
+            # Refresh
             st.session_state.pop("onboarding_eligible", None)
             st.rerun()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Page: Notifications
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Page: Notifications ---
 
 def _render_notifications(user: dict) -> None:
     _section_header(
@@ -875,7 +841,7 @@ def _render_notifications(user: dict) -> None:
         ["📢 Manual Notification", "⏰ Weekly Reminders", "📜 Notification Log"]
     )
 
-    # ── Tab 1: Manual notification ────────────────────────────────────────────
+    # Tab: Manual notification
     with tab_manual:
         st.markdown("#### Send a Custom Notification")
         st.caption("Compose and send a message to a selected audience.")
@@ -967,7 +933,7 @@ def _render_notifications(user: dict) -> None:
                         "Check your email configuration."
                     )
 
-    # ── Tab 2: Weekly reminders ───────────────────────────────────────────────
+    # Tab: Weekly reminders
     with tab_reminder:
         st.markdown("#### Weekly Reminder Engine")
         st.markdown(
@@ -1012,7 +978,7 @@ def _render_notifications(user: dict) -> None:
                 else:
                     st.success(f"✅ {total_sent} reminder(s) sent successfully.")
 
-    # ── Tab 3: Notification log ────────────────────────────────────────────────
+    # Tab: Notification log
     with tab_log:
         st.markdown("#### Notification History (Last 100)")
         log = _fetch_notification_log(limit=100)
@@ -1038,12 +1004,10 @@ def _render_notifications(user: dict) -> None:
             st.dataframe(styled_log, use_container_width=True, hide_index=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# Entry point
-# ═══════════════════════════════════════════════════════════════════════════════
+# --- Entry point ---
 
 def render() -> None:
-    """Called by app.py when role == 'Admin'."""
+    """Route to the correct admin page."""
     user = require_auth()
 
     page = get_current_page()
@@ -1061,5 +1025,4 @@ def render() -> None:
     elif page == "notifications":
         _render_notifications(user)
     else:
-        # Fallback — should never happen given sidebar nav definition
-        _render_overview(user)
+        _render_overview(user)  # fallback

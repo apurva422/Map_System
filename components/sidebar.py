@@ -1,20 +1,9 @@
-"""
-components/sidebar.py
-=====================
-Role-aware navigation links rendered inside the sidebar.
-
-render_nav(role) is called by app.py with the current user's role.
-Each role sees only the pages relevant to them.
-
-FIX: Every nav button click now clears `selected_plan_id` from
-session state so navigating to "My Action Plans" from the sidebar
-always lands on the list view, not the last-opened plan detail.
-"""
+"""Role-aware sidebar navigation. Clears drill-down state on page change."""
 
 import streamlit as st
 
 
-# Navigation definitions per role
+# Nav items per role
 _NAV_ITEMS = {
     "Manager": [
         ("🏠", "Dashboard",         "dashboard"),
@@ -40,23 +29,21 @@ _NAV_ITEMS = {
     ],
 }
 
-# Session-state keys that represent drill-down state within a page.
-# These are cleared whenever the user navigates to a different page
-# so they always land on the list/overview, not a previously opened record.
+# Keys cleared on page change (prevents stale drill-down state)
 _DRILL_DOWN_KEYS = [
-    "selected_plan_id",   # Manager / HRBP plan detail
+    "selected_plan_id",
     "selected_manager_id",
 ]
 
 
 def render_nav(role: str) -> None:
-    """Render navigation links for the given role."""
+    """Render nav links for the given role."""
     items = _NAV_ITEMS.get(role, [])
     if not items:
         st.caption("No navigation items for this role.")
         return
 
-    # Initialise page state if not already set
+    # Init page state
     if "current_page" not in st.session_state:
         st.session_state["current_page"] = items[0][2]
 
@@ -66,7 +53,7 @@ def render_nav(role: str) -> None:
         btn_label = f"{icon} **{label}**" if is_active else f"{icon} {label}"
 
         if st.button(btn_label, key=f"nav_{page_key}", use_container_width=True):
-            # ── Clear all drill-down state before changing page ──────────────
+            # Clear drill-down state
             for key in _DRILL_DOWN_KEYS:
                 st.session_state.pop(key, None)
 
@@ -75,5 +62,5 @@ def render_nav(role: str) -> None:
 
 
 def get_current_page() -> str:
-    """Return the currently selected page key."""
+    """Return current page key."""
     return st.session_state.get("current_page", "dashboard")

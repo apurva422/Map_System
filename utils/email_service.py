@@ -1,25 +1,4 @@
-"""
-utils/email_service.py
-======================
-All email logic for the MAP System lives here.
-
-Provider: smtplib + Gmail App Password (MVP).
-To switch to SendGrid: add the API key to .env and swap the _send()
-helper only — every call site stays the same.
-
-Functions
----------
-send_plan_created(manager_email, reporting_manager_email, plan_details,
-                  manager_db_id, plan_id)
-send_invitation(manager_email, manager_name, manager_db_id)
-send_zone_report(hrbp_email, zone, attachment_path, hrbp_db_id)
-send_admin_feedback(manager_email, feedback_text, plan_title,
-                    manager_db_id, plan_id)
-send_weekly_reminder(manager_email, manager_name, reason, manager_db_id)
-send_manual_notification(recipient_emails, subject, message,
-                         sender_db_id, audience_label)
-check_and_send_reminders()   ← standalone; can be called by a cron job
-"""
+"""Email functions — smtplib+Gmail (MVP). Swap _send() to switch provider."""
 
 from __future__ import annotations
 
@@ -35,7 +14,7 @@ from config import EMAIL_SENDER, EMAIL_PASSWORD
 from database.supabase_client import supabase, get_service_client
 
 
-# ── Internal send helper ──────────────────────────────────────────────────────
+# Internal send helper
 
 def _send(
     to: str | list[str],
@@ -43,15 +22,11 @@ def _send(
     body_html: str,
     attachment_path: str | None = None,
 ) -> tuple[bool, str]:
-    """
-    Send an email via smtplib (Gmail SMTP SSL on port 465).
-    Returns (success: bool, error_message: str).
-    """
+    """Send email via Gmail SMTP SSL. Returns (success, error_msg)."""
     if not EMAIL_SENDER or not EMAIL_PASSWORD:
         return False, "EMAIL_SENDER / EMAIL_PASSWORD not configured in .env"
 
     recipients = [to] if isinstance(to, str) else to
-    # Filter out blank addresses
     recipients = [r.strip() for r in recipients if r and r.strip()]
     if not recipients:
         return False, "No valid recipient email addresses provided."
@@ -89,7 +64,7 @@ def _log_notification(
     action_plan_id: str | None,
     status: str,
 ) -> None:
-    """Write a row to notifications_log; never raises — logging must not crash the app."""
+    """Log to notifications_log; never raises."""
     try:
         supabase.from_("notifications_log").insert({
             "recipient_id":   recipient_id,
@@ -111,7 +86,7 @@ def _base_footer() -> str:
     )
 
 
-# ── Public email functions ────────────────────────────────────────────────────
+# Public email functions
 
 def send_plan_created(
     manager_email: str,
@@ -120,10 +95,7 @@ def send_plan_created(
     manager_db_id: str,
     plan_id: str | None = None,
 ) -> None:
-    """
-    Triggered on every new Action Plan creation.
-    Notifies both the manager and their reporting manager.
-    """
+    """Notify manager and reporting manager of new plan."""
     title      = plan_details.get("title", "—")
     wef        = plan_details.get("wef_element", "—")
     status     = plan_details.get("status", "Initiated")
@@ -175,10 +147,7 @@ def send_invitation(
     manager_name: str,
     manager_db_id: str,
 ) -> bool:
-    """
-    Triggered by Admin during Stage 1 eligibility & onboarding.
-    Returns True on success.
-    """
+    """Send onboarding invitation. Returns True on success."""
     subject = "[MAP] Invitation — Action Planning System, XYZ Industries"
     body = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
@@ -222,7 +191,7 @@ def send_zone_report(
     attachment_path: str,
     hrbp_db_id: str,
 ) -> bool:
-    """Triggered when HRBP or Admin clicks 'Email Zone Report'."""
+    """Email zone report with attachment."""
     subject = f"[MAP] Zone Report — {zone}"
     fname   = os.path.basename(attachment_path) if attachment_path else "report"
     body = f"""
@@ -256,7 +225,7 @@ def send_admin_feedback(
     plan_id: str | None = None,
     feedback_type: str = "clarification",
 ) -> bool:
-    """Triggered when Admin sends feedback from Phase 5."""
+    """Send admin feedback email for a plan."""
     type_label = "Clarification Requested" if feedback_type == "clarification" else "Improvement Suggested"
     badge_colour = "#2563EB" if feedback_type == "clarification" else "#D97706"
 
@@ -303,10 +272,7 @@ def send_weekly_reminder(
     reason: str,           # "no_plans_created" | "plan_stuck_in_initiated"
     manager_db_id: str,
 ) -> bool:
-    """
-    Weekly reminder email sent by check_and_send_reminders().
-    reason drives the message body.
-    """
+    """Weekly reminder based on reason ('no_plans_created' or 'plan_stuck_in_initiated')."""
     if reason == "no_plans_created":
         subject    = "[MAP] Reminder — Please Create Your Action Plans"
         headline   = "Action Plans Not Yet Started"
@@ -355,10 +321,7 @@ def send_manual_notification(
     sender_db_id: str,
     audience_label: str = "Selected Recipients",
 ) -> dict:
-    """
-    Send a manually composed notification from Admin panel.
-    Returns {"sent": int, "failed": int}.
-    """
+    """Send manual notification from Admin. Returns {sent, failed}."""
     results = {"sent": 0, "failed": 0}
     html_body = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;">
@@ -389,31 +352,17 @@ def send_manual_notification(
     return results
 
 
-# ── Standalone reminder checker (callable by cron) ───────────────────────────
+# Reminder checker (cron-callable)
 
 def check_and_send_reminders() -> dict:
-    """
-    Queries two conditions and sends the appropriate reminder emails:
-
-    Condition 1 — Eligible managers with ZERO action plans created.
-      Query: employees WHERE is_eligible=TRUE, no rows in action_plans.
-
-    Condition 2 — Plans stuck in 'Initiated' for more than 7 days.
-      Query: action_plans WHERE status='Initiated'
-             AND updated_at < (now - 7 days).
-
-    Uses the service client to bypass RLS so all rows are accessible.
-
-    Returns a summary dict:
-      {"no_plans": int, "stuck": int, "errors": int}
-    """
+    """Check two conditions and send reminders. Returns {no_plans, stuck, errors}."""
     summary = {"no_plans": 0, "stuck": 0, "errors": 0}
     client  = get_service_client()
     cutoff  = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
 
-    # ── Condition 1: Eligible managers with zero action plans ──────────────
+    # Condition 1: Eligible managers with no plans
     try:
-        # Fetch all eligible managers
+        # All eligible managers
         mgr_resp = (
             client
             .from_("employees")
@@ -424,7 +373,7 @@ def check_and_send_reminders() -> dict:
         all_eligible: list[dict] = mgr_resp.data or []
 
         if all_eligible:
-            # Fetch distinct manager_ids that have at least one action plan
+            # Managers that have at least one plan
             plan_resp = (
                 client
                 .from_("action_plans")
@@ -452,7 +401,7 @@ def check_and_send_reminders() -> dict:
     except Exception as exc:
         summary["errors"] += 1
 
-    # ── Condition 2: Plans stuck in Initiated beyond 7 days ───────────────
+    # Condition 2: Plans stuck in Initiated > 7 days
     try:
         stuck_resp = (
             client
@@ -465,8 +414,7 @@ def check_and_send_reminders() -> dict:
         stuck_plans: list[dict] = stuck_resp.data or []
 
         if stuck_plans:
-            # Collect unique manager_ids to avoid spamming the same manager
-            # if they have multiple stuck plans
+            # Avoid spamming same manager for multiple stuck plans
             notified_managers: set[str] = set()
 
             for plan in stuck_plans:
@@ -474,7 +422,7 @@ def check_and_send_reminders() -> dict:
                 if mgr_id in notified_managers:
                     continue
 
-                # Fetch manager contact details
+                # Manager contact details
                 mgr_resp = (
                     client
                     .from_("employees")

@@ -1,26 +1,16 @@
-"""
-app.py
-======
-Entry point for the MAP System Streamlit application.
-
-Responsibilities:
-  1. Load global CSS
-  2. Render the shared sidebar (nav + logout)
-  3. Read the authenticated user's role
-  4. Route to the correct view module
-"""
+"""Entry point — loads CSS, renders sidebar, routes by role."""
 
 import streamlit as st
 
 from auth import require_auth, logout, get_current_user
 from config import APP_TITLE, APP_ICON, ROLE_COLOURS
 
-# ── View imports (each is a module with a render() function) ──────────────────
+# View imports
 from views import manager, hrbp, admin, ceo
 from components import sidebar as sidebar_component
 
 
-# ── Global page config (must be the very first Streamlit call) ────────────────
+# Page config (must be first Streamlit call)
 st.set_page_config(
     page_title=APP_TITLE,
     page_icon=APP_ICON,
@@ -30,19 +20,16 @@ st.set_page_config(
 
 
 def _load_css() -> None:
-    """Inject global stylesheet from assets/style.css."""
+    """Inject global CSS."""
     try:
         with open("assets/style.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
-        pass  # CSS file not yet created — silently skip during early phases
+        pass  # CSS file missing — skip
 
 
 def _route(role: str) -> None:
-    """
-    Central role router.
-    Adding a new role = one elif + one view module.
-    """
+    """Route to the view module for the given role."""
     if role == "Manager":
         manager.render()
     elif role == "HRBP":
@@ -58,21 +45,21 @@ def _route(role: str) -> None:
         )
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# Main
 
 def main() -> None:
     _load_css()
 
-    # Gate: renders login page + st.stop() if not authenticated
+    # Auth gate
     user = require_auth()
 
     role   = user["role"]
     name   = user["name"]
     colour = ROLE_COLOURS.get(role, "#2E75B6")
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
+    # Sidebar
     with st.sidebar:
-        # Role-coloured accent bar at the top of the sidebar
+        # Accent bar
         st.markdown(
             f"""
             <div style="
@@ -93,14 +80,14 @@ def main() -> None:
         st.markdown(f"**{name}**")
         st.divider()
 
-        # Role-aware navigation links rendered by sidebar component
+        # Nav links
         sidebar_component.render_nav(role)
 
         st.divider()
         if st.button("🚪 Sign Out", use_container_width=True):
             logout()
 
-    # ── Main content area ─────────────────────────────────────────────────────
+    # Main content
     _route(role)
 
 

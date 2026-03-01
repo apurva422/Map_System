@@ -1,21 +1,10 @@
-"""
-utils/validators.py
-===================
-Eligibility checks for the MAP System.
-
-is_eligible_manager(employee_row) → bool
-    True if role == "Manager" AND level == "LEVEL 2"
-
-get_eligible_managers() → list[dict]
-    Returns all employees who pass the eligibility check.
-    Uses the service-role client to bypass RLS.
-"""
+"""Manager eligibility checks — is_eligible_manager() and get_eligible_managers()."""
 
 from database.supabase_client import get_service_client
 
 
 def is_eligible_manager(employee: dict) -> bool:
-    """Check a single employee dict for manager eligibility."""
+    """True if role=Manager and level=LEVEL 2."""
     return (
         employee.get("role", "").strip() == "Manager"
         and employee.get("level", "").strip().upper() == "LEVEL 2"
@@ -23,10 +12,7 @@ def is_eligible_manager(employee: dict) -> bool:
 
 
 def get_eligible_managers() -> list[dict]:
-    """
-    Query Supabase for all eligible managers (role=Manager, level=LEVEL 2).
-    Uses the service client so RLS does not restrict the query.
-    """
+    """Return all eligible managers (service client, bypasses RLS)."""
     client = get_service_client()
     resp = (
         client

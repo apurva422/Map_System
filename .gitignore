@@ -4,7 +4,7 @@ venv/
 env/
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
-.env
+
 
 # ── Python cache ──────────────────────────────────────────────────────────────
 __pycache__/
@@ -37,3 +37,5 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+MAP_Development_Breakdown.docx

@@ -1,16 +1,4 @@
-"""
-views/hrbp.py
-=============
-Full HRBP View for the MAP System — Phase 4.
-
-Pages (routed via st.session_state["current_page"])
-----------------------------------------------------
-dashboard   -> Zone summary cards + status/WEF breakdown
-zone_plans  -> Filterable table of all plans in HRBP zone;
-               click into any plan for detail + backend update
-export      -> Download zone report as CSV / Excel / PDF;
-               email zone report
-"""
+"""HRBP view — zone dashboard, zone plans with detail, export/email."""
 
 from __future__ import annotations
 
@@ -29,18 +17,10 @@ from components.sidebar import get_current_page
 from utils.email_service import send_zone_report
 
 
-# =============================================================================
-# DATA LAYER
-# =============================================================================
+# Data layer 
 
 def _fetch_manager_lookup(manager_ids: list[str]) -> dict[str, dict]:
-    """
-    Fetch name and email for a list of manager UUIDs.
-    Uses the service client to bypass RLS — the HRBP anon role has no
-    SELECT policy on the employees table, so the anon client returns nothing.
-    Reading employee names is safe; no sensitive fields are exposed.
-    NOTE: 'function' is a reserved SQL keyword — read from action_plans directly.
-    """
+    """Fetch name/email for a list of manager IDs (service client)."""
     if not manager_ids:
         return {}
     try:
@@ -59,7 +39,7 @@ def _fetch_manager_lookup(manager_ids: list[str]) -> dict[str, dict]:
 
 
 def _fetch_zone_plans(zone: str) -> list[dict]:
-    """Return all action plans for this zone with manager name/email/function."""
+    """Return all plans for this zone with manager details."""
     try:
         resp = (
             supabase
@@ -73,7 +53,7 @@ def _fetch_zone_plans(zone: str) -> list[dict]:
         if not plans:
             return []
 
-        # Fetch manager details in one round-trip
+        # Manager details in one round-trip
         manager_ids = list({p["manager_id"] for p in plans if p.get("manager_id")})
         lookup = _fetch_manager_lookup(manager_ids)
 
@@ -81,7 +61,7 @@ def _fetch_zone_plans(zone: str) -> list[dict]:
             emp = lookup.get(row.get("manager_id"), {})
             row["manager_name"]     = emp.get("name", "—")
             row["manager_email"]    = emp.get("email", "")
-            # function is already denormalized on action_plans — use it directly
+            # function is on action_plans directly
             row["manager_function"] = row.get("function", "—") or "—"
         return plans
     except Exception as exc:
@@ -102,7 +82,7 @@ def _fetch_plan_by_id(plan_id: str) -> dict | None:
         if not resp.data:
             return None
         row = resp.data
-        # Fetch manager details separately — no FK name dependency
+        # Manager details
         if row.get("manager_id"):
             lookup = _fetch_manager_lookup([row["manager_id"]])
             emp    = lookup.get(row["manager_id"], {})
@@ -111,7 +91,7 @@ def _fetch_plan_by_id(plan_id: str) -> dict | None:
         else:
             row["manager_name"]     = "—"
             row["manager_email"]    = ""
-        # function is denormalized on action_plans — read it directly
+        # function from action_plans directly
         row["manager_function"] = row.get("function", "—") or "—"
         return row
     except Exception:
@@ -164,9 +144,7 @@ def _fetch_hrbp_email(hrbp_db_id: str) -> str:
         return ""
 
 
-# =============================================================================
-# UI HELPERS
-# =============================================================================
+# UI helpers 
 
 def _status_badge(status: str) -> str:
     colour = STATUS_COLOURS.get(status, "#9E9E9E")
@@ -233,9 +211,7 @@ def _apply_filters(plans, mgr, fn, wef, sts):
     return f
 
 
-# =============================================================================
-# PAGE: ZONE DASHBOARD
-# =============================================================================
+# Page: Zone Dashboard 
 
 def _render_dashboard(user: dict) -> None:
     zone  = user.get("zone", "—")
@@ -331,9 +307,7 @@ def _render_dashboard(user: dict) -> None:
         st.caption(f"Showing 5 of {len(plans)}. Go to Zone Action Plans to see all.")
 
 
-# =============================================================================
-# PAGE: ZONE ACTION PLANS
-# =============================================================================
+# Page: Zone Plans 
 
 def _render_zone_plans(user: dict) -> None:
     if st.session_state.get("selected_plan_id"):
@@ -521,9 +495,7 @@ def _render_plan_detail(user: dict, plan_id: str) -> None:
                 st.markdown(card_html, unsafe_allow_html=True)
 
 
-# =============================================================================
-# PAGE: EXPORT / EMAIL
-# =============================================================================
+# Page: Export 
 
 def _generate_pdf(df: "pd.DataFrame", zone: str) -> bytes | None:
     try:
@@ -668,9 +640,7 @@ def _render_export(user: dict) -> None:
     )
 
 
-# =============================================================================
-# TOP-LEVEL RENDER
-# =============================================================================
+# Entry point 
 
 def render() -> None:
     user = get_current_user()

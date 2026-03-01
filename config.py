@@ -1,20 +1,20 @@
-# config.py
+"""App-wide configuration and constants."""
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Supabase ──────────────────────────────────────────────────────────────────
+# Supabase
 SUPABASE_URL        = os.environ.get("SUPABASE_URL", "")
 SUPABASE_ANON_KEY   = os.environ.get("SUPABASE_ANON_KEY", "")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
-# ── Email ─────────────────────────────────────────────────────────────────────
+# Email
 EMAIL_SENDER        = os.environ.get("EMAIL_SENDER", "")
 EMAIL_PASSWORD      = os.environ.get("EMAIL_PASSWORD", "")
 SENDGRID_API_KEY    = os.environ.get("SENDGRID_API_KEY", "")
 
-# ── App constants ─────────────────────────────────────────────────────────────
+# App constants
 APP_TITLE           = "MAP System — Manager Action Planning"
 APP_ICON            = "📋"
 
@@ -37,7 +37,7 @@ WEF_ELEMENTS = {
 
 PLAN_STATUSES       = ["Initiated", "Ongoing", "Closed"]
 
-# ── Role accent colours (used in sidebar CSS) ─────────────────────────────────
+# Role accent colours
 ROLE_COLOURS = {
     "Manager": "#2E75B6",
     "HRBP":    "#375623",
@@ -45,7 +45,7 @@ ROLE_COLOURS = {
     "CEO":     "#7030A0",
 }
 
-# ── Status badge colours ──────────────────────────────────────────────────────
+# Status badge colours
 STATUS_COLOURS = {
     "Initiated": "#9E9E9E",
     "Ongoing":   "#FFC107",

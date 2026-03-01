@@ -1,13 +1,4 @@
-"""
-utils/export_utils.py
-=====================
-Single export function called identically from HRBP, Admin, and CEO views.
-
-generate_report(df, export_format, filename, filters=None)
-  → returns bytes (CSV / Excel / PDF)
-
-Adding a new export format = one elif in generate_report() only.
-"""
+"""Export to CSV / Excel / PDF — one function, used by HRBP, Admin, and CEO."""
 
 from __future__ import annotations
 
@@ -20,14 +11,10 @@ import pandas as pd
 from fpdf import FPDF
 
 
-# ── Unicode → Latin-1 sanitizer ───────────────────────────────────────────────
+# Unicode → Latin-1 sanitiser (for fpdf2 Helvetica)
 
 def _sanitize(text: str) -> str:
-    """
-    Replace Unicode characters unsupported by fpdf2's built-in Helvetica
-    (Latin-1 only) with safe ASCII equivalents, then hard-drop anything
-    that still falls outside Latin-1.
-    """
+    """Replace unsupported Unicode with Latin-1 safe equivalents."""
     replacements = {
         "\u2014": "-",    # em dash         —  → -
         "\u2013": "-",    # en dash         –  → -
@@ -42,14 +29,14 @@ def _sanitize(text: str) -> str:
     }
     for char, replacement in replacements.items():
         text = text.replace(char, replacement)
-    # Final fallback: encode to Latin-1, replacing anything still unsupported
+    # Drop anything still outside Latin-1
     return text.encode("latin-1", errors="replace").decode("latin-1")
 
 
-# ── PDF renderer ──────────────────────────────────────────────────────────────
+# PDF renderer
 
 class _ReportPDF(FPDF):
-    """Custom FPDF subclass with MAP System header and footer."""
+    """Custom FPDF with MAP System header/footer."""
 
     def __init__(self, title: str = "Action Plans Report", *args, **kwargs):
         super().__init__(orientation="L", unit="mm", format="A4", *args, **kwargs)
@@ -84,7 +71,7 @@ class _ReportPDF(FPDF):
         )
         self.ln(6)
 
-        # Thin divider line
+        # Divider
         self.set_draw_color(220, 220, 220)
         self.line(12, self.get_y(), self.w - 12, self.get_y())
         self.ln(4)
@@ -96,7 +83,7 @@ class _ReportPDF(FPDF):
         self.cell(0, 6, f"Page {self.page_no()} of {{nb}}", align="C")
 
 
-# ── Column config for PDF table ───────────────────────────────────────────────
+# PDF column config
 
 # (display_name, df_column, width_mm, align)
 _PDF_COLUMNS: list[tuple[str, str, float, str]] = [
@@ -118,15 +105,15 @@ _STATUS_COLOURS: dict[str, tuple[int, int, int]] = {
 
 
 def _build_pdf(df: pd.DataFrame, title: str) -> bytes:
-    """Render a DataFrame as a formatted PDF table and return bytes."""
+    """Render DataFrame as formatted PDF table."""
     pdf = _ReportPDF(title=_sanitize(title))
     pdf.alias_nb_pages()
     pdf.add_page()
 
-    # Only render columns that actually exist in the DataFrame
+    # Filter columns
     available = [col for col in _PDF_COLUMNS if col[1] in df.columns]
 
-    # ── Table header row ───────────────────────────────────────────────────
+    # Table header
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_fill_color(240, 240, 240)
     pdf.set_text_color(50, 50, 50)
@@ -136,19 +123,19 @@ def _build_pdf(df: pd.DataFrame, title: str) -> bytes:
         pdf.cell(width, 7, _sanitize(display_name), border=1, align=align, fill=True)
     pdf.ln()
 
-    # ── Data rows ──────────────────────────────────────────────────────────
+    # Data rows
     pdf.set_font("Helvetica", "", 7.5)
     fill = False
 
     for _, row in df.iterrows():
-        # Manual page break check so rows are never split mid-row
+        # Page break check
         if pdf.get_y() + 7 > pdf.h - pdf.b_margin:
             pdf.add_page()
 
         for _, col_key, width, align in available:
             val  = row.get(col_key, "")
             val  = "" if val is None else val
-            text = _sanitize(str(val))[:40]   # sanitize + truncate for column fit
+            text = _sanitize(str(val))[:40]
 
             if col_key == "status":
                 r, g, b = _STATUS_COLOURS.get(text, (200, 200, 200))
@@ -168,7 +155,7 @@ def _build_pdf(df: pd.DataFrame, title: str) -> bytes:
         fill = not fill
         pdf.ln()
 
-    # ── Summary block ──────────────────────────────────────────────────────
+    # Summary
     pdf.ln(4)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(80, 80, 80)
@@ -186,7 +173,7 @@ def _build_pdf(df: pd.DataFrame, title: str) -> bytes:
     return bytes(pdf.output())
 
 
-# ── Public API ────────────────────────────────────────────────────────────────
+# Public API
 
 def generate_report(
     df: pd.DataFrame,
@@ -194,28 +181,14 @@ def generate_report(
     filename: str,
     filters: dict | None = None,
 ) -> bytes | None:
-    """
-    Generate a report in the requested format.
-
-    Parameters
-    ----------
-    df            : DataFrame to export (already filtered by caller)
-    export_format : "CSV" | "Excel" | "PDF"
-    filename      : used as the PDF report title and Excel sheet name
-    filters       : optional metadata dict (not applied here — caller filters df)
-
-    Returns
-    -------
-    bytes  for CSV, Excel, and PDF
-    None   if an unsupported format is requested
-    """
+    """Generate CSV / Excel / PDF report. Returns bytes or None."""
 
     if export_format == "CSV":
         return df.to_csv(index=False).encode("utf-8")
 
     if export_format == "Excel":
         buf   = io.BytesIO()
-        sheet = (filename or "Action Plans")[:31]   # Excel sheet name limit = 31 chars
+        sheet = (filename or "Action Plans")[:31]  # Excel 31-char limit
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name=sheet)
         return buf.getvalue()
@@ -231,11 +204,7 @@ def generate_report(
 
 
 def save_temp_file(content: bytes, suffix: str) -> str:
-    """
-    Write bytes to a named temp file and return its path.
-    Used by email_service when attaching an exported file.
-    The caller is responsible for deleting the file after sending.
-    """
+    """Write bytes to a temp file; returns path. Caller must delete."""
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     tmp.write(content)
     tmp.flush()
