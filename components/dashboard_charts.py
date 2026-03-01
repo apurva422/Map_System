@@ -82,6 +82,9 @@ def chart_plans_by_zone(df: pd.DataFrame) -> go.Figure | None:
         .sort_values("Plans", ascending=False)
     )
 
+    max_val = int(counts["Plans"].max()) if not counts.empty else 1
+    y_max   = max(max_val * 1.25, max_val + 1)   # headroom so labels are never clipped
+
     fig = go.Figure(
         go.Bar(
             x=counts["Zone"],
@@ -91,13 +94,15 @@ def chart_plans_by_zone(df: pd.DataFrame) -> go.Figure | None:
             text=counts["Plans"],
             textposition="outside",
             textfont=dict(size=12, color="#374151"),
+            cliponaxis=False,
         )
     )
     fig.update_layout(
         **_CHART_LAYOUT_DEFAULTS,
         title=dict(text="Action Plans by Zone", font=dict(size=14, color="#1A1A2E"), x=0),
         xaxis=dict(title="", tickfont=dict(size=11)),
-        yaxis=dict(title="No. of Plans", gridcolor="#F3F4F6", zeroline=False),
+        yaxis=dict(title="No. of Plans", gridcolor="#F3F4F6", zeroline=False,
+                   range=[0, y_max]),
         showlegend=False,
         height=320,
         margin=dict(l=16, r=16, t=40, b=16),
@@ -124,6 +129,9 @@ def chart_plans_by_function(df: pd.DataFrame) -> go.Figure | None:
     # Cycle through palette if more functions than colours
     colours = (_BAR_PALETTE * ((len(counts) // len(_BAR_PALETTE)) + 1))[: len(counts)]
 
+    max_val = int(counts["Plans"].max()) if not counts.empty else 1
+    y_max   = max(max_val * 1.25, max_val + 1)
+
     fig = go.Figure(
         go.Bar(
             x=counts["Function"],
@@ -133,13 +141,15 @@ def chart_plans_by_function(df: pd.DataFrame) -> go.Figure | None:
             text=counts["Plans"],
             textposition="outside",
             textfont=dict(size=12, color="#374151"),
+            cliponaxis=False,
         )
     )
     fig.update_layout(
         **_CHART_LAYOUT_DEFAULTS,
         title=dict(text="Action Plans by Function", font=dict(size=14, color="#1A1A2E"), x=0),
         xaxis=dict(title="", tickangle=-30, tickfont=dict(size=10)),
-        yaxis=dict(title="No. of Plans", gridcolor="#F3F4F6", zeroline=False),
+        yaxis=dict(title="No. of Plans", gridcolor="#F3F4F6", zeroline=False,
+                   range=[0, y_max]),
         showlegend=False,
         height=320,
         margin=dict(l=16, r=16, t=40, b=16),
