@@ -370,9 +370,9 @@ def chart_plans_over_time(df: pd.DataFrame) -> go.Figure | None:
 
 # ── Summary metrics strip ─────────────────────────────────────────────────────
 
-def summary_metrics_strip(df: pd.DataFrame) -> None:
+def summary_metrics_strip(df: pd.DataFrame, employee_count: int = 0, eligible_managers: int = 0) -> None:
     """
-    Four st.metric cards — fully responds to whatever filtered df is passed in.
+    Five st.metric cards — fully responds to whatever filtered df is passed in.
     Calling this with a dashboard-filtered df makes the metrics update live.
     """
     if df.empty:
@@ -384,8 +384,9 @@ def summary_metrics_strip(df: pd.DataFrame) -> None:
         active_zones    = df["zone"].nunique()    if "zone"       in df.columns else 0
         active_managers = df["manager_id"].nunique() if "manager_id" in df.columns else 0
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("📋 Total Action Plans",     total)
     c2.metric("✅ Plans Closed",           f"{pct_closed}%")
     c3.metric("🗺️  Zones with Plans",       active_zones)
-    c4.metric("👤 Managers Participating", active_managers)
+    c4.metric("👤 Participating / Eligible Managers", f"{active_managers} / {eligible_managers}")
+    c5.metric("👥 Total Employees",        employee_count)

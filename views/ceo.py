@@ -269,8 +269,17 @@ def _page_dashboard(df: pd.DataFrame) -> None:
 
     st.divider()
 
-    # Metrics strip
-    summary_metrics_strip(df_filtered)
+    # Metrics strip — include total employee head count + eligible managers
+    try:
+        client = get_service_client()
+        emp_resp = client.from_("employees").select("id", count="exact").execute()
+        total_employees = emp_resp.count if emp_resp.count is not None else 0
+        elig_resp = client.from_("employees").select("id", count="exact").eq("is_eligible", True).execute()
+        eligible_managers = elig_resp.count if elig_resp.count is not None else 0
+    except Exception:
+        total_employees = 0
+        eligible_managers = 0
+    summary_metrics_strip(df_filtered, employee_count=total_employees, eligible_managers=eligible_managers)
 
     st.divider()
 
