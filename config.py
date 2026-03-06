@@ -1,18 +1,15 @@
 """App-wide configuration and constants."""
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+import streamlit as st
 
 # Supabase
-SUPABASE_URL        = os.environ.get("SUPABASE_URL", "")
-SUPABASE_ANON_KEY   = os.environ.get("SUPABASE_ANON_KEY", "")
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+SUPABASE_URL        = st.secrets["SUPABASE_URL"]
+SUPABASE_ANON_KEY   = st.secrets["SUPABASE_ANON_KEY"]
+SUPABASE_SERVICE_KEY = st.secrets["SUPABASE_SERVICE_KEY"]
 
 # Email
-EMAIL_SENDER        = os.environ.get("EMAIL_SENDER", "")
-EMAIL_PASSWORD      = os.environ.get("EMAIL_PASSWORD", "")
-SENDGRID_API_KEY    = os.environ.get("SENDGRID_API_KEY", "")
+EMAIL_SENDER        = st.secrets["EMAIL_SENDER"]
+EMAIL_PASSWORD      = st.secrets["EMAIL_PASSWORD"]
+SENDGRID_API_KEY    = st.secrets.get("SENDGRID_API_KEY", "")
 
 # App constants
 APP_TITLE           = "MAP System — Manager Action Planning"
